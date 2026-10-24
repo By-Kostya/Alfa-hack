@@ -1,11 +1,14 @@
+import os
+import json
 import uuid
 from typing import Optional, List, Dict, Any
 from fastapi import FastAPI, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
-from app.database import engine, get_db, Base
+from app.database import engine, get_db, Base, SessionLocal
 from app import db_models
 from app import models
 from app.auth import get_current_user_required, get_current_user_optional
@@ -17,8 +20,77 @@ Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Alfa Credit Core API", version="1.0.0")
 
+# Включаем CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-# --- Единый формат ошибок: {"error": "..."} по контракту ---
+# Разрешенные тестовые номера из синтетических данных
+ALLOWED_PHONES = {"79001111111", "79002222222", "79003333333"}
+PHONE_ERROR_MSG = "Пользователь не найден. Доступны тестовые номера: 79001111111, 79002222222, 79003333333"
+
+
+# --- Автоматический сид синтетических данных при запуске ---
+def seed_synthetic_data():
+    db = SessionLocal()
+    try:
+        profiles_path = "data/synthetic_profiles.json"
+        if not os.path.exists(profiles_path):
+            return
+
+        with open(profiles_path, "r", encoding="utf-8") as f:
+            profiles = json.load(f)
+
+        for p in profiles:
+            user = db.query(db_models.User).filter(db_models.User.phone == p["phone"]).first()
+            if not user:
+                user = db_models.User(
+                    phone=p["phone"],
+                    token=f"tok_{uuid.uuid4().hex[:12]}",
+                    full_name=p.get("full_name", "Предприниматель"),
+                    role=p.get("role", "Руководитель"),
+                    email=p.get("email", "")
+                )
+                db.add(user)
+                db.flush()
+
+            company = db.query(db_models.Company).filter(db_models.Company.user_id == user.id).first()
+            if not company and "company" in p:
+                c_data = p["company"]
+                company = db_models.Company(
+                    user_id=user.id,
+                    inn=c_data["inn"],
+                    ogrn=c_data.get("ogrn", ""),
+                    name=c_data["name"],
+                    short_name=c_data.get("short_name", ""),
+                    status=c_data.get("status", "Действующее предприятие"),
+                    registration_date=c_data.get("registration_date", "2022-01-01"),
+                    okved=c_data.get("okved", ""),
+                    monthly_revenue_rub=c_data.get("monthly_revenue_rub", 0),
+                    credit_rating=c_data.get("credit_rating", 500),
+                    rating_grade=c_data.get("rating_grade", "Средняя надежность"),
+                    preapproved_limit_rub=c_data.get("preapproved_limit_rub", 0)
+                )
+                db.add(company)
+
+        db.commit()
+    except Exception as e:
+        print(f"Error seeding synthetic data: {e}")
+        db.rollback()
+    finally:
+        db.close()
+
+
+@app.on_event("startup")
+def on_startup():
+    seed_synthetic_data()
+
+
+# --- Единый формат ошибок: {"error": "..."} ---
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     errors = exc.errors()
@@ -33,7 +105,35 @@ async def http_exception_handler(request: Request, exc: HTTPException):
     return JSONResponse(status_code=exc.status_code, content={"error": str(exc.detail)})
 
 
-# --- Сериализаторы SQLAlchemy в dict ---
+# --- Сериализаторы ---
+def serialize_company(comp: Optional[db_models.Company]) -> Optional[Dict[str, Any]]:
+    if not comp:
+        return None
+    return {
+        "inn": comp.inn,
+        "ogrn": comp.ogrn,
+        "name": comp.name,
+        "short_name": comp.short_name,
+        "status": comp.status,
+        "registration_date": comp.registration_date,
+        "okved": comp.okved,
+        "monthly_revenue_rub": comp.monthly_revenue_rub,
+        "credit_rating": comp.credit_rating,
+        "rating_grade": comp.rating_grade,
+        "preapproved_limit_rub": comp.preapproved_limit_rub
+    }
+
+
+def serialize_user(user: db_models.User) -> Dict[str, Any]:
+    return {
+        "id": user.id,
+        "phone": user.phone,
+        "full_name": user.full_name,
+        "role": user.role,
+        "email": user.email
+    }
+
+
 def serialize_application(app_obj: db_models.Application) -> Dict[str, Any]:
     return {
         "id": app_obj.id,
@@ -83,23 +183,42 @@ def serialize_credit(credit_obj: db_models.Credit) -> Dict[str, Any]:
 
 
 # ==========================================
-# 1. АВТОРИЗАЦИЯ И СЕССИИ
+# 1. АВТОРИЗАЦИЯ, SMS И ПРОФИЛЬ
 # ==========================================
+
+@app.post("/api/auth/sms/send", response_model=models.SmsSendResponse)
+def send_sms_code(data: models.SmsSendRequest):
+    # Жесткая проверка номера по белому списку
+    if data.phone not in ALLOWED_PHONES:
+        raise HTTPException(status_code=400, detail={"error": PHONE_ERROR_MSG})
+
+    return {
+        "status": "ok",
+        "code": "0000",
+        "message": f"СМС с кодом отправлено на номер {data.phone}. Тестовый код: 0000"
+    }
+
 
 @app.post("/api/auth/session")
 def create_session(data: models.SessionCreateRequest, db: Session = Depends(get_db)):
+    # Жесткая проверка номера по белому списку
+    if data.phone not in ALLOWED_PHONES:
+        raise HTTPException(status_code=400, detail={"error": PHONE_ERROR_MSG})
+
+    # Проверка СМС кода
+    if data.code and data.code not in ["0000"]:
+        raise HTTPException(status_code=400, detail={"error": "Неверный код из СМС."})
+
     user = db.query(db_models.User).filter(db_models.User.phone == data.phone).first()
-    new_token = f"tok_{uuid.uuid4().hex[:12]}"
-
     if not user:
-        user = db_models.User(phone=data.phone, token=new_token)
-        db.add(user)
-    else:
-        user.token = new_token
+        raise HTTPException(status_code=400, detail={"error": PHONE_ERROR_MSG})
 
+    new_token = f"tok_{uuid.uuid4().hex[:12]}"
+    user.token = new_token
     db.commit()
     db.refresh(user)
-    return {"token": user.token, "user": {"id": user.id, "phone": user.phone}}
+
+    return {"token": user.token, "user": serialize_user(user)}
 
 
 @app.delete("/api/auth/session", status_code=204)
@@ -110,8 +229,11 @@ def delete_session(user: db_models.User = Depends(get_current_user_required), db
 
 
 @app.get("/api/me")
-def get_me(user: db_models.User = Depends(get_current_user_required)):
-    return {"id": user.id, "phone": user.phone}
+def get_me(user: db_models.User = Depends(get_current_user_required), db: Session = Depends(get_db)):
+    comp = db.query(db_models.Company).filter(db_models.Company.user_id == user.id).first()
+    res = serialize_user(user)
+    res["company"] = serialize_company(comp)
+    return res
 
 
 # ==========================================
@@ -150,7 +272,7 @@ def get_product_by_code(code: str):
 
 
 # ==========================================
-# ЛОГИКА СКОРИНГА И СОЗДАНИЯ КРЕДИТА
+# СКОРИНГ И КРЕДИТЫ
 # ==========================================
 
 def execute_scoring_and_create_credit(app_obj: db_models.Application, db: Session):
@@ -218,13 +340,16 @@ def create_application(
         if not req.phone:
             raise HTTPException(status_code=401, detail={"error": "Требуется авторизация или номер телефона в заявке."})
 
+        # Проверяем белый список
+        if req.phone not in ALLOWED_PHONES:
+            raise HTTPException(status_code=400, detail={"error": PHONE_ERROR_MSG})
+
         user = db.query(db_models.User).filter(db_models.User.phone == req.phone).first()
-        new_token = f"tok_{uuid.uuid4().hex[:12]}"
         if not user:
-            user = db_models.User(phone=req.phone, token=new_token)
-            db.add(user)
-        else:
-            user.token = new_token
+            raise HTTPException(status_code=400, detail={"error": PHONE_ERROR_MSG})
+
+        new_token = f"tok_{uuid.uuid4().hex[:12]}"
+        user.token = new_token
         db.commit()
         db.refresh(user)
 
@@ -249,7 +374,7 @@ def create_application(
 
         return {
             "token": user.token,
-            "user": {"id": user.id, "phone": user.phone},
+            "user": serialize_user(user),
             "application": serialize_application(app_obj)
         }
 
@@ -376,6 +501,8 @@ def get_cabinet(
     user: db_models.User = Depends(get_current_user_required),
     db: Session = Depends(get_db)
 ):
+    company = db.query(db_models.Company).filter(db_models.Company.user_id == user.id).first()
+
     apps = db.query(db_models.Application).filter(
         db_models.Application.user_id == user.id
     ).order_by(db_models.Application.created_at.desc()).all()
@@ -385,7 +512,8 @@ def get_cabinet(
     ).order_by(db_models.Credit.created_at.desc()).all()
 
     return {
-        "user": {"id": user.id, "phone": user.phone},
+        "user": serialize_user(user),
+        "company": serialize_company(company),
         "products": PRODUCTS_INFO,
         "applications": [serialize_application_short(a) for a in apps],
         "credits": [serialize_credit(c) for c in credits]

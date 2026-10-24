@@ -1,0 +1,11 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: alfa_credit_backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./sql_app.db:/app/sql_app.db
+    restart: unless-stopped

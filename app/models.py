@@ -17,8 +17,8 @@ def validate_phone_str(phone: Optional[str]) -> Optional[str]:
     return phone
 
 
-# --- Авторизация ---
-class SessionCreateRequest(BaseModel):
+# --- Авторизация и SMS ---
+class SmsSendRequest(BaseModel):
     phone: str
 
     @field_validator("phone")
@@ -26,9 +26,42 @@ class SessionCreateRequest(BaseModel):
         return validate_phone_str(v)
 
 
+class SmsSendResponse(BaseModel):
+    status: str
+    code: str
+    message: str
+
+
+class SessionCreateRequest(BaseModel):
+    phone: str
+    code: Optional[str] = None
+
+    @field_validator("phone")
+    def check_phone(cls, v):
+        return validate_phone_str(v)
+
+
+# --- Профиль пользователя и компании ---
+class CompanyOut(BaseModel):
+    inn: str
+    ogrn: str
+    name: str
+    short_name: str
+    status: str
+    registration_date: str
+    okved: str
+    monthly_revenue_rub: int
+    credit_rating: int
+    rating_grade: str
+    preapproved_limit_rub: int
+
+
 class UserOut(BaseModel):
     id: str
     phone: str
+    full_name: Optional[str] = "Предприниматель"
+    role: Optional[str] = "Руководитель"
+    email: Optional[str] = ""
 
 
 class SessionResponse(BaseModel):
@@ -69,6 +102,7 @@ class ApplicationCreateRequest(BaseModel):
 
 class ApplicationConfirmRequest(BaseModel):
     phone: str
+    code: Optional[str] = None
 
     @field_validator("phone")
     def check_phone(cls, v):
@@ -108,7 +142,7 @@ class ApplicationFullOut(BaseModel):
     report: Optional[ScoringReport]
 
 
-# --- Заявка (Короткая карточка без business_plan и report) ---
+# --- Заявка (Короткая карточка) ---
 class ApplicationShortOut(BaseModel):
     id: str
     status: str
@@ -154,9 +188,10 @@ class CreditDetailOut(CreditShortOut):
     schedule: List[ScheduleItem]
 
 
-# --- Кабинет ---
+# --- Кабинет (С компанией!) ---
 class CabinetResponse(BaseModel):
     user: UserOut
+    company: Optional[CompanyOut] = None
     products: List[ProductItem]
     applications: List[ApplicationShortOut]
     credits: List[CreditShortOut]

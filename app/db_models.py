@@ -9,7 +9,6 @@ def generate_uuid(prefix: str = "") -> str:
 
 
 def get_current_iso_time() -> str:
-    # ISO-8601 со смещением (требование контракта)
     return datetime.now(timezone.utc).isoformat()
 
 
@@ -19,7 +18,28 @@ class User(Base):
     id = Column(String, primary_key=True, default=lambda: generate_uuid("user-"))
     phone = Column(String, unique=True, index=True, nullable=False)
     token = Column(String, unique=True, index=True, nullable=False)
+    full_name = Column(String, default="Предприниматель")
+    role = Column(String, default="Руководитель")
+    email = Column(String, default="")
     created_at = Column(String, default=get_current_iso_time)
+
+
+class Company(Base):
+    __tablename__ = "companies"
+
+    id = Column(String, primary_key=True, default=lambda: generate_uuid("comp-"))
+    user_id = Column(String, ForeignKey("users.id"), unique=True, nullable=False)
+    inn = Column(String, nullable=False)
+    ogrn = Column(String, default="")
+    name = Column(String, nullable=False)
+    short_name = Column(String, default="")
+    status = Column(String, default="Действующее предприятие")
+    registration_date = Column(String, default="2022-01-01")
+    okved = Column(String, default="")
+    monthly_revenue_rub = Column(Integer, default=0)
+    credit_rating = Column(Integer, default=500)
+    rating_grade = Column(String, default="Средний уровень")
+    preapproved_limit_rub = Column(Integer, default=0)
 
 
 class Application(Base):
@@ -28,7 +48,7 @@ class Application(Base):
     id = Column(String, primary_key=True, default=lambda: generate_uuid("app-"))
     user_id = Column(String, ForeignKey("users.id"), nullable=False)
     status = Column(String, default="draft")  # draft / scored
-    product = Column(String, nullable=False)  # working_capital / startup
+    product = Column(String, nullable=False)
     phone = Column(String, nullable=False)
     purpose = Column(String, default="")
     loan_amount_rub = Column(Integer, nullable=False)
@@ -41,13 +61,12 @@ class Application(Base):
     credit_rating = Column(Integer, nullable=True)
     created_at = Column(String, default=get_current_iso_time)
 
-    # Результаты скоринга (до скоринга null)
     pipeline = Column(String, nullable=True)
     fallback = Column(Boolean, default=False)
     monthly_payment_rub = Column(Integer, nullable=True)
     flow_rub = Column(Integer, nullable=True)
     limit_rub = Column(Integer, nullable=True)
-    decision = Column(String, nullable=True)  # approve / reduced / reject / unknown
+    decision = Column(String, nullable=True)
     credit_id = Column(String, nullable=True)
     report = Column(JSON, nullable=True)
 
