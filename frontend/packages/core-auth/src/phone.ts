@@ -21,7 +21,7 @@ export function normalizeRussianPhone(value: string): string | null {
 }
 
 export function formatRussianPhone(value: string): string {
-  const digits = digitsOnly(value).replace(/^8/, '7').replace(/^7/, '').slice(0, 10);
+  const digits = digitsOnly(value).replace(/^8/, '7').replace(/^7/, '').slice(0, 12);
   const parts = [digits.slice(0, 3), digits.slice(3, 6), digits.slice(6, 8), digits.slice(8, 10)];
   const [area, first, second, third] = parts;
 

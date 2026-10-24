@@ -210,11 +210,58 @@ h1 {
 .submit-button:disabled { background: #e4a09b; cursor: not-allowed; }
 .submit-button span { font-size: 19px; font-weight: 400; }
 
-.submit-message {
+.request-error {
   margin: 14px 0 0;
-  color: #287848;
+  color: #b42318;
   font-family: Arial, sans-serif;
   font-size: 13px;
+  line-height: 1.45;
+}
+
+.products-title {
+  margin: 36px 0 12px;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.product-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.product-list li {
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--alfa-red);
+  font-size: 15px;
+}
+
+.logout-button {
+  margin-top: 24px;
+  padding: 10px 0;
+  border: 0;
+  color: #5d5d5d;
+  background: transparent;
+  cursor: pointer;
+  font-size: 13px;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.logout-button:hover { color: var(--alfa-red); }
+
+.loading-screen {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  border-top: 8px solid var(--alfa-red);
+  color: #5d5d5d;
+  background: #fff;
+  font-family: Arial, sans-serif;
+  font-size: 15px;
 }
 
 .brand-note {
