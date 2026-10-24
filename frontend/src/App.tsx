@@ -256,37 +256,46 @@ function App() {
   function handlePhoneChange(value: string) {
     setPhone(formatRussianPhone(value));
     setError('');
+    setSmsMessage('');
+    setSmsCodeHint('0000');
   }
 
-  function handlePhoneSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handlePhoneSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!normalizedPhone || isSubmitting) return;
 
     setError('');
-    api.requestMockSmsCode(normalizedPhone);
-    setCode('');
-    setStep('code');
+    setSmsMessage('');
+    setIsSubmitting(true);
+    try {
+      const response = await api.sendSmsCode(normalizedPhone);
+      setSmsMessage(response.message);
+      setSmsCodeHint(response.code || '0000');
+      setCode('');
+      sessionStorage.setItem(PENDING_PHONE_KEY, normalizedPhone);
+      navigateTo(ROUTES.code);
+    } catch (requestError) {
+      setError(getErrorMessage(requestError));
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   async function handleCodeSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!normalizedPhone || isSubmitting) return;
 
-    if (!api.verifyMockSmsCode(normalizedPhone, code)) {
-      setError('Неверный код. Проверьте его и попробуйте ещё раз.');
-      return;
-    }
-
     setError('');
     setIsSubmitting(true);
     try {
-      const session = await api.createSession(normalizedPhone);
+      const session = await api.createSession(normalizedPhone, code);
       if (!session.token) throw new Error('Сервер не вернул токен входа.');
 
       sessionStorage.setItem(TOKEN_KEY, session.token);
-      const nextCabinet = await api.getCabinet(session.token);
+      sessionStorage.removeItem(PENDING_PHONE_KEY);
+      const nextCabinet = await api.getDashboardData(session.token);
       setCabinet(nextCabinet);
-      setCabinetScreen('welcome');
+      navigateTo(ROUTES.welcome);
     } catch (requestError) {
       if (requestError instanceof ApiError && requestError.status === 401) {
         sessionStorage.removeItem(TOKEN_KEY);
@@ -300,12 +309,14 @@ function App() {
   async function handleLogout() {
     const token = sessionStorage.getItem(TOKEN_KEY);
     sessionStorage.removeItem(TOKEN_KEY);
+    sessionStorage.removeItem(PENDING_PHONE_KEY);
     setCabinet(null);
-    setCabinetScreen('dashboard');
     setSelectedProduct(null);
     setError('');
-    setStep('phone');
+    setPhone('+7');
     setCode('');
+    navigateTo(ROUTES.login, true);
+    closeCabinetDetail();
 
     if (!token) return;
     try {
