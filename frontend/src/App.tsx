@@ -3,6 +3,7 @@ import { ApiError, createApiClient, type Cabinet } from '@alfa-hack/core-api';
 import { formatRussianPhone, isRussianPhoneComplete, normalizeRussianPhone } from '@alfa-hack/core-auth';
 
 const TOKEN_KEY = 'alfa-hack:token';
+const WELCOME_DURATION_MS = 3000;
 const api = createApiClient();
 
 function App() {
@@ -10,7 +11,7 @@ function App() {
   const [step, setStep] = useState<'phone' | 'code'>('phone');
   const [code, setCode] = useState('');
   const [cabinet, setCabinet] = useState<Cabinet | null>(null);
-  const [cabinetScreen, setCabinetScreen] = useState<'dashboard' | 'product-choice'>('dashboard');
+  const [cabinetScreen, setCabinetScreen] = useState<'welcome' | 'dashboard' | 'product-choice'>('dashboard');
   const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -26,7 +27,7 @@ function App() {
     api.getCabinet(token)
       .then((nextCabinet) => {
         setCabinet(nextCabinet);
-        setCabinetScreen('dashboard');
+        setCabinetScreen('welcome');
       })
       .catch((requestError: unknown) => {
         if (requestError instanceof ApiError && requestError.status === 401) {
@@ -36,6 +37,12 @@ function App() {
       })
       .finally(() => setIsRestoring(false));
   }, []);
+
+  useEffect(() => {
+    if (cabinetScreen !== 'welcome') return;
+    const timer = window.setTimeout(() => setCabinetScreen('dashboard'), WELCOME_DURATION_MS);
+    return () => window.clearTimeout(timer);
+  }, [cabinetScreen]);
 
   function handlePhoneChange(value: string) {
     setPhone(formatRussianPhone(value));
@@ -70,7 +77,7 @@ function App() {
       sessionStorage.setItem(TOKEN_KEY, session.token);
       const nextCabinet = await api.getCabinet(session.token);
       setCabinet(nextCabinet);
-      setCabinetScreen('dashboard');
+      setCabinetScreen('welcome');
     } catch (requestError) {
       if (requestError instanceof ApiError && requestError.status === 401) {
         sessionStorage.removeItem(TOKEN_KEY);
@@ -101,6 +108,15 @@ function App() {
 
   if (isRestoring) {
     return <main className="loading-screen" role="status">Загружаем личный кабинет…</main>;
+  }
+
+  if (cabinet && cabinetScreen === 'welcome') {
+    return (
+      <WelcomeScreen
+        phone={cabinet.user.phone}
+        onContinue={() => setCabinetScreen('dashboard')}
+      />
+    );
   }
 
   return (
@@ -370,6 +386,48 @@ function formatShortDate(value: string): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '';
   return new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long' }).format(date);
+}
+
+function WelcomeScreen({ phone, onContinue }: { phone: string; onContinue: () => void }) {
+  return (
+    <main className="welcome-screen" aria-labelledby="welcome-title">
+      <div className="welcome-shape welcome-shape--one" aria-hidden="true" />
+      <div className="welcome-shape welcome-shape--two" aria-hidden="true" />
+      <span className="welcome-letter" aria-hidden="true">А</span>
+
+      <header className="welcome-topbar">
+        <div className="welcome-wordmark" aria-label="Альфа-Бизнес">
+          <span>Альфа</span><b>Бизнес</b>
+        </div>
+        <span className="welcome-topbar-label">Личный кабинет</span>
+      </header>
+
+      <section className="welcome-copy">
+        <p className="welcome-kicker"><span /> Рады видеть вас</p>
+        <h1 id="welcome-title">Добро<br />пожаловать</h1>
+        <div className="welcome-rule" aria-hidden="true" />
+        <p className="welcome-caption">Ваш личный кабинет готов</p>
+        <div className="welcome-profile">
+          <span className="welcome-profile-icon" aria-hidden="true">+7</span>
+          <span className="welcome-profile-copy">
+            <span>Вход выполнен для номера</span>
+            <strong>{phone}</strong>
+          </span>
+          <span className="welcome-profile-check" aria-label="Вход выполнен">✓</span>
+        </div>
+        <button className="welcome-continue" type="button" onClick={onContinue}>
+          Перейти в кабинет <span aria-hidden="true">→</span>
+        </button>
+      </section>
+
+      <footer className="welcome-footer">
+        <span>Альфа-Бизнес</span>
+        <div className="welcome-progress" aria-label="Переход в кабинет через несколько секунд">
+          <span />
+        </div>
+      </footer>
+    </main>
+  );
 }
 
 export default App;
