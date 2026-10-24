@@ -10,6 +10,8 @@ function App() {
   const [step, setStep] = useState<'phone' | 'code'>('phone');
   const [code, setCode] = useState('');
   const [cabinet, setCabinet] = useState<Cabinet | null>(null);
+  const [cabinetScreen, setCabinetScreen] = useState<'dashboard' | 'product-choice'>('dashboard');
+  const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isRestoring, setIsRestoring] = useState(() => Boolean(sessionStorage.getItem(TOKEN_KEY)));
@@ -22,7 +24,10 @@ function App() {
     if (!token) return;
 
     api.getCabinet(token)
-      .then(setCabinet)
+      .then((nextCabinet) => {
+        setCabinet(nextCabinet);
+        setCabinetScreen('dashboard');
+      })
       .catch((requestError: unknown) => {
         if (requestError instanceof ApiError && requestError.status === 401) {
           sessionStorage.removeItem(TOKEN_KEY);
@@ -65,6 +70,7 @@ function App() {
       sessionStorage.setItem(TOKEN_KEY, session.token);
       const nextCabinet = await api.getCabinet(session.token);
       setCabinet(nextCabinet);
+      setCabinetScreen('dashboard');
     } catch (requestError) {
       if (requestError instanceof ApiError && requestError.status === 401) {
         sessionStorage.removeItem(TOKEN_KEY);
@@ -79,6 +85,8 @@ function App() {
     const token = sessionStorage.getItem(TOKEN_KEY);
     sessionStorage.removeItem(TOKEN_KEY);
     setCabinet(null);
+    setCabinetScreen('dashboard');
+    setSelectedProduct(null);
     setError('');
     setStep('phone');
     setCode('');
@@ -104,23 +112,133 @@ function App() {
           </div>
         </header>
 
-        <div className="auth-content">
-          <div className="auth-copy">
+        <div className={`auth-content${cabinet ? ' auth-content--dashboard' : ''}`}>
+          <div className={`auth-copy${cabinet ? ' auth-copy--dashboard' : ''}`}>
             {cabinet ? (
-              <div className="cabinet-view">
-                <p className="eyebrow">Личный кабинет</p>
-                <h1 id="auth-title">Вы вошли</h1>
-                <p className="intro">{cabinet.user.phone}</p>
-                <h2 className="products-title">Доступные продукты</h2>
-                <ul className="product-list">
-                  {cabinet.products.map((product) => (
-                    <li key={product.code}>
-                      {product.title}
-                    </li>
-                  ))}
-                </ul>
-                <button className="logout-button" type="button" onClick={handleLogout}>Выйти</button>
-              </div>
+              cabinetScreen === 'dashboard' ? (
+                <section className="dashboard" aria-labelledby="auth-title">
+                  <div className="dashboard-heading">
+                    <div>
+                      <p className="eyebrow">Личный кабинет</p>
+                      <h1 id="auth-title">Здравствуйте</h1>
+                      <p className="dashboard-phone">{cabinet.user.phone}</p>
+                    </div>
+                    <button
+                      className="dashboard-cta"
+                      type="button"
+                      onClick={() => {
+                        setCabinetScreen('product-choice');
+                        setSelectedProduct(null);
+                      }}
+                    >
+                      <span aria-hidden="true">＋</span> Взять кредит
+                    </button>
+                  </div>
+
+                  <div className="dashboard-stats" aria-label="Сводка по кабинету">
+                    <article className="dashboard-stat">
+                      <span>Заявки</span>
+                      <strong>{cabinet.applications.length}</strong>
+                    </article>
+                    <article className="dashboard-stat">
+                      <span>Активные кредиты</span>
+                      <strong>{cabinet.credits.filter((credit) => credit.status === 'active').length}</strong>
+                    </article>
+                    <article className="dashboard-stat">
+                      <span>Продукты</span>
+                      <strong>{cabinet.products.length}</strong>
+                    </article>
+                  </div>
+
+                  <section className="dashboard-section" aria-labelledby="applications-title">
+                    <div className="dashboard-section-heading">
+                      <h2 id="applications-title">Мои заявки</h2>
+                      <span>{cabinet.applications.length}</span>
+                    </div>
+                    {cabinet.applications.length ? (
+                      <ul className="dashboard-list">
+                        {cabinet.applications.slice(0, 3).map((application) => (
+                          <li key={application.id} className="dashboard-list-item">
+                            <div>
+                              <strong>{getProductTitle(cabinet, application.product)}</strong>
+                              <span>{formatShortDate(application.created_at)}</span>
+                            </div>
+                            <div className="dashboard-list-meta">
+                              <strong>{formatRub(application.limit_rub ?? application.loan_amount_rub)}</strong>
+                              <span>{getApplicationStatus(application.status, application.decision)}</span>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="dashboard-empty">Заявок пока нет</p>
+                    )}
+                  </section>
+
+                  <section className="dashboard-section" aria-labelledby="credits-title">
+                    <div className="dashboard-section-heading">
+                      <h2 id="credits-title">Мои кредиты</h2>
+                      <span>{cabinet.credits.length}</span>
+                    </div>
+                    {cabinet.credits.length ? (
+                      <ul className="dashboard-list">
+                        {cabinet.credits.slice(0, 3).map((credit) => (
+                          <li key={credit.id} className="dashboard-list-item">
+                            <div>
+                              <strong>{getProductTitle(cabinet, credit.product)}</strong>
+                              <span>{credit.status === 'active' ? 'Активен' : credit.status}</span>
+                            </div>
+                            <div className="dashboard-list-meta">
+                              <strong>{formatRub(credit.amount_rub)}</strong>
+                              <span>Платёж {formatRub(credit.monthly_payment_rub)} в месяц</span>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="dashboard-empty">Кредитов пока нет</p>
+                    )}
+                  </section>
+                  <button className="logout-button" type="button" onClick={handleLogout}>Выйти</button>
+                </section>
+              ) : (
+                <section className="product-choice" aria-labelledby="auth-title">
+                  <button
+                    className="back-button"
+                    type="button"
+                    onClick={() => setCabinetScreen('dashboard')}
+                  >
+                    ← Личный кабинет
+                  </button>
+                  <p className="eyebrow">Подбор кредита</p>
+                  <h1 id="auth-title">Для чего нужен кредит?</h1>
+                  <p className="intro">Выберите задачу, чтобы начать с подходящего продукта</p>
+                  <div className="product-choice-list">
+                    {cabinet.products.map((product) => (
+                      <button
+                        className={`product-choice-card${selectedProduct === product.code ? ' product-choice-card--selected' : ''}`}
+                        type="button"
+                        key={product.code}
+                        aria-pressed={selectedProduct === product.code}
+                        onClick={() => setSelectedProduct(product.code)}
+                      >
+                        <span className="product-choice-check" aria-hidden="true">
+                          {selectedProduct === product.code ? '✓' : ''}
+                        </span>
+                        <span className="product-choice-copy">
+                          <strong>{getProductTitle(cabinet, product.code)}</strong>
+                          <span>{getProductDescription(product.code)}</span>
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                  {selectedProduct && (
+                    <p className="selected-product" role="status">
+                      Вы выбрали: {getProductTitle(cabinet, selectedProduct)}
+                    </p>
+                  )}
+                </section>
+              )
             ) : step === 'phone' ? (
               <>
                 <p className="eyebrow">Личный кабинет</p>
@@ -222,6 +340,36 @@ function App() {
 function getErrorMessage(error: unknown): string {
   if (error instanceof Error && error.message) return error.message;
   return 'Не удалось выполнить вход. Попробуйте ещё раз.';
+}
+
+function getProductTitle(cabinet: Cabinet, code: string): string {
+  return cabinet.products.find((product) => product.code === code)?.title ?? code;
+}
+
+function getProductDescription(code: string): string {
+  if (code === 'working_capital') return 'Пополнить оборот действующего бизнеса';
+  if (code === 'startup') return 'Запустить новое дело по бизнес-плану';
+  return 'Посмотреть условия продукта';
+}
+
+function getApplicationStatus(status: string, decision: string | null): string {
+  if (status === 'draft') return 'Черновик';
+  if (decision === 'approve') return 'Одобрена';
+  if (decision === 'reduced') return 'Одобрена на меньшую сумму';
+  if (decision === 'reject') return 'Отказ';
+  if (decision === 'unknown') return 'Нужно уточнить данные';
+  return status;
+}
+
+function formatRub(value: number | null): string {
+  if (value === null) return '—';
+  return `${new Intl.NumberFormat('ru-RU').format(value)} ₽`;
+}
+
+function formatShortDate(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long' }).format(date);
 }
 
 export default App;

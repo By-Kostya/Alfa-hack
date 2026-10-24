@@ -10,6 +10,30 @@ export type AuthSession = {
   };
 };
 
+export type ApplicationCard = {
+  id: string;
+  status: string;
+  product: string;
+  purpose: string;
+  loan_amount_rub: number;
+  loan_term_months: number;
+  created_at: string;
+  limit_rub: number | null;
+  monthly_payment_rub: number | null;
+  decision: 'approve' | 'reduced' | 'reject' | 'unknown' | null;
+};
+
+export type CreditCard = {
+  id: string;
+  product: string;
+  status: string;
+  amount_rub: number;
+  loan_term_months: number;
+  monthly_payment_rub: number;
+  purpose: string;
+  created_at: string;
+};
+
 export type Cabinet = {
   user: {
     id: string;
@@ -19,8 +43,8 @@ export type Cabinet = {
     code: string;
     title: string;
   }>;
-  applications: unknown[];
-  credits: unknown[];
+  applications: ApplicationCard[];
+  credits: CreditCard[];
 };
 
 export class ApiError extends Error {

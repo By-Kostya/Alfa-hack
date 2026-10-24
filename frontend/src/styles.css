@@ -88,6 +88,224 @@ a { color: inherit; }
   padding: 20px 0 36px;
 }
 
+.auth-content--dashboard {
+  grid-template-columns: minmax(0, 1.5fr) minmax(280px, 0.85fr);
+  gap: clamp(36px, 5vw, 80px);
+  padding-top: 54px;
+}
+
+.auth-copy--dashboard {
+  width: 100%;
+  max-width: 880px;
+  justify-self: stretch;
+  padding: 0 0 32px;
+}
+
+.dashboard-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 28px;
+  margin-bottom: 28px;
+}
+
+.dashboard-heading .eyebrow { margin-bottom: 12px; }
+.dashboard-heading h1 { font-size: clamp(36px, 3.6vw, 48px); }
+
+.dashboard-phone {
+  margin: 12px 0 0;
+  color: #6c6c6c;
+  font-family: Arial, sans-serif;
+  font-size: 14px;
+}
+
+.dashboard-cta {
+  display: inline-flex;
+  min-width: 172px;
+  height: 52px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 3px;
+  color: #fff;
+  background: var(--alfa-red);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.dashboard-cta:hover { background: #d9271d; }
+.dashboard-cta span { font-size: 20px; font-weight: 400; }
+
+.dashboard-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 32px;
+}
+
+.dashboard-stat {
+  min-height: 105px;
+  padding: 17px 18px;
+  border: 1px solid #e3e3e3;
+  border-radius: 3px;
+  background: #fff;
+}
+
+.dashboard-stat span {
+  display: block;
+  color: #747474;
+  font-family: Arial, sans-serif;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.dashboard-stat strong {
+  display: block;
+  margin-top: 10px;
+  font-size: 30px;
+  font-weight: 600;
+  letter-spacing: -0.06em;
+}
+
+.dashboard-section { margin-top: 28px; }
+
+.dashboard-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.dashboard-section-heading h2 {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: -0.035em;
+}
+
+.dashboard-section-heading > span {
+  color: #777;
+  font-family: Arial, sans-serif;
+  font-size: 13px;
+}
+
+.dashboard-list {
+  display: grid;
+  gap: 1px;
+  margin: 0;
+  padding: 0;
+  border: 1px solid #e6e6e6;
+  border-radius: 3px;
+  background: #e6e6e6;
+  list-style: none;
+  overflow: hidden;
+}
+
+.dashboard-list-item {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 15px 17px;
+  background: #fff;
+}
+
+.dashboard-list-item > div { display: grid; min-width: 0; gap: 5px; }
+.dashboard-list-item strong { font-size: 13px; font-weight: 600; }
+.dashboard-list-item span {
+  color: #777;
+  font-family: Arial, sans-serif;
+  font-size: 11px;
+  line-height: 1.4;
+}
+.dashboard-list-meta { text-align: right; }
+.dashboard-list-meta strong { white-space: nowrap; }
+
+.dashboard-empty {
+  margin: 0;
+  padding: 18px;
+  border: 1px solid #e6e6e6;
+  color: #777;
+  font-family: Arial, sans-serif;
+  font-size: 13px;
+}
+
+.product-choice { max-width: 700px; }
+
+.back-button {
+  margin: 0 0 40px;
+  padding: 8px 0;
+  border: 0;
+  color: #666;
+  background: transparent;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.back-button:hover { color: var(--alfa-red); }
+.product-choice .eyebrow { margin-bottom: 14px; }
+.product-choice .intro { margin: 18px 0 28px; }
+
+.product-choice-list { display: grid; gap: 12px; }
+
+.product-choice-card {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 16px;
+  padding: 20px;
+  border: 1px solid #d8d8d8;
+  border-radius: 3px;
+  color: var(--ink);
+  background: #fff;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 140ms ease, box-shadow 140ms ease;
+}
+
+.product-choice-card:hover { border-color: #999; }
+.product-choice-card--selected {
+  border-color: var(--alfa-red);
+  box-shadow: 0 0 0 2px rgb(239 49 36 / 10%);
+}
+
+.product-choice-check {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+  place-items: center;
+  border: 1px solid #c9c9c9;
+  border-radius: 50%;
+  color: #fff;
+  font-size: 14px;
+}
+
+.product-choice-card--selected .product-choice-check {
+  border-color: var(--alfa-red);
+  background: var(--alfa-red);
+}
+
+.product-choice-copy { display: grid; gap: 7px; }
+.product-choice-copy strong { font-size: 15px; font-weight: 600; }
+.product-choice-copy > span {
+  color: #777;
+  font-family: Arial, sans-serif;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.selected-product {
+  margin: 20px 0 0;
+  color: #4d4d4d;
+  font-size: 14px;
+}
+
 .eyebrow {
   margin: 0 0 20px;
   color: var(--alfa-red);
@@ -377,6 +595,9 @@ h1 {
   }
   .brand-note { min-height: 420px; padding: 36px; }
   .brand-note__message { font-size: clamp(38px, 5.2vw, 54px); }
+  .auth-content--dashboard { gap: 28px; }
+  .dashboard-heading { align-items: start; flex-direction: column; }
+  .dashboard-list-item { gap: 10px; padding: 14px; }
 }
 
 @media (max-width: 680px) {
@@ -394,6 +615,7 @@ h1 {
     padding: 56px 0 26px;
   }
   .auth-copy { width: 100%; align-self: stretch; padding: 0; }
+  .auth-copy--dashboard { padding-bottom: 12px; }
   .eyebrow { margin-bottom: 16px; }
   h1 { max-width: 370px; font-size: clamp(34px, 9vw, 46px); }
   .intro { margin: 16px 0 31px; font-size: 14px; }
@@ -405,6 +627,18 @@ h1 {
   .brand-note__message { font-size: clamp(34px, 9vw, 48px); }
   .brand-note__baseline { width: 65%; height: 3px; margin-top: 18px; }
   .brand-note__index { right: -10px; bottom: -90px; font-size: 350px; }
+  .auth-content--dashboard { padding-top: 38px; }
+  .dashboard-heading { gap: 20px; }
+  .dashboard-heading h1 { font-size: 40px; }
+  .dashboard-cta { width: 100%; }
+  .dashboard-stats { gap: 7px; margin-bottom: 26px; }
+  .dashboard-stat { min-height: 90px; padding: 12px 10px; }
+  .dashboard-stat span { font-size: 10px; }
+  .dashboard-stat strong { font-size: 26px; }
+  .dashboard-list-item { align-items: start; flex-direction: column; }
+  .dashboard-list-meta { text-align: left; }
+  .back-button { margin-bottom: 28px; }
+  .product-choice-card { padding: 16px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
