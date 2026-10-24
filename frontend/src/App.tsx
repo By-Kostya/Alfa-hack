@@ -69,6 +69,92 @@ function App() {
   const isComplete = isRussianPhoneComplete(phone);
   const normalizedPhone = normalizeRussianPhone(phone);
 
+  function goToProduct(index: number) {
+    if (!cabinet?.products.length) return;
+    const nextIndex = Math.max(0, Math.min(index, cabinet.products.length - 1));
+    setActiveProductIndex(nextIndex);
+    const viewport = productCarouselRef.current;
+    const slide = productSlideRefs.current[nextIndex];
+    if (!viewport || !slide) return;
+    viewport.scrollTo({
+      left: slide.offsetLeft - (viewport.clientWidth - slide.clientWidth) / 2,
+      behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+    });
+  }
+
+  function syncActiveProductFromScroll(): number {
+    const viewport = productCarouselRef.current;
+    if (!viewport || !cabinet?.products.length) return 0;
+    const viewportCenter = viewport.scrollLeft + viewport.clientWidth / 2;
+    let closestIndex = 0;
+    let closestDistance = Number.POSITIVE_INFINITY;
+    productSlideRefs.current.forEach((slide, index) => {
+      if (!slide) return;
+      const slideCenter = slide.offsetLeft + slide.clientWidth / 2;
+      const distance = Math.abs(viewportCenter - slideCenter);
+      const progress = Math.max(0, 1 - distance / (viewport.clientWidth * 0.58));
+      slide.style.transform = `scale(${(0.91 + progress * 0.09).toFixed(3)})`;
+      slide.style.opacity = `${(0.64 + progress * 0.36).toFixed(3)}`;
+      if (distance < closestDistance) {
+        closestDistance = distance;
+        closestIndex = index;
+      }
+    });
+    setActiveProductIndex((currentIndex) => currentIndex === closestIndex ? currentIndex : closestIndex);
+    return closestIndex;
+  }
+
+  function handleCarouselPointerDown(event: ReactPointerEvent<HTMLDivElement>) {
+    if (event.pointerType !== 'mouse' || event.button !== 0) return;
+    if (event.target instanceof Element && event.target.closest('button, a, input')) return;
+    productDragRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startScrollLeft: event.currentTarget.scrollLeft,
+      didDrag: false,
+    };
+  }
+
+  function handleCarouselPointerMove(event: ReactPointerEvent<HTMLDivElement>) {
+    const drag = productDragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    const delta = event.clientX - drag.startX;
+    if (!drag.didDrag && Math.abs(delta) < 6) return;
+    if (!drag.didDrag) {
+      drag.didDrag = true;
+      event.currentTarget.setPointerCapture(event.pointerId);
+      event.currentTarget.classList.add('product-carousel-viewport--dragging');
+    }
+    event.preventDefault();
+    event.currentTarget.scrollLeft = drag.startScrollLeft - delta;
+  }
+
+  function handleCarouselPointerUp(event: ReactPointerEvent<HTMLDivElement>) {
+    const drag = productDragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    productDragRef.current = null;
+    event.currentTarget.classList.remove('product-carousel-viewport--dragging');
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+    if (drag.didDrag) {
+      suppressCarouselClickRef.current = true;
+      goToProduct(syncActiveProductFromScroll());
+      window.setTimeout(() => { suppressCarouselClickRef.current = false; }, 0);
+    }
+  }
+
+  function handleCarouselClickCapture(event: ReactMouseEvent<HTMLDivElement>) {
+    if (!suppressCarouselClickRef.current) return;
+    event.preventDefault();
+    event.stopPropagation();
+    suppressCarouselClickRef.current = false;
+  }
+
+  useEffect(() => {
+    const handlePopState = () => setRoute(normalizeRoute(window.location.pathname));
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
   useEffect(() => {
     const token = sessionStorage.getItem(TOKEN_KEY);
     if (!token) return;
