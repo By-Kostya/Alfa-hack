@@ -7,6 +7,8 @@ const api = createApiClient();
 
 function App() {
   const [phone, setPhone] = useState('+7');
+  const [step, setStep] = useState<'phone' | 'code'>('phone');
+  const [code, setCode] = useState('');
   const [cabinet, setCabinet] = useState<Cabinet | null>(null);
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -35,9 +37,24 @@ function App() {
     setError('');
   }
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  function handlePhoneSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!normalizedPhone || isSubmitting) return;
+
+    setError('');
+    api.requestMockSmsCode(normalizedPhone);
+    setCode('');
+    setStep('code');
+  }
+
+  async function handleCodeSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!normalizedPhone || isSubmitting) return;
+
+    if (!api.verifyMockSmsCode(normalizedPhone, code)) {
+      setError('Неверный код. Проверьте его и попробуйте ещё раз.');
+      return;
+    }
 
     setError('');
     setIsSubmitting(true);
@@ -63,6 +80,8 @@ function App() {
     sessionStorage.removeItem(TOKEN_KEY);
     setCabinet(null);
     setError('');
+    setStep('phone');
+    setCode('');
 
     if (!token) return;
     try {
@@ -102,13 +121,13 @@ function App() {
                 </ul>
                 <button className="logout-button" type="button" onClick={handleLogout}>Выйти</button>
               </div>
-            ) : (
+            ) : step === 'phone' ? (
               <>
                 <p className="eyebrow">Личный кабинет</p>
                 <h1 id="auth-title">Вход по номеру телефона</h1>
                 <p className="intro">Введите номер телефона, чтобы войти в кабинет</p>
 
-                <form className="phone-form" onSubmit={handleSubmit} noValidate>
+                <form className="phone-form" onSubmit={handlePhoneSubmit} noValidate>
                   <label className="phone-label" htmlFor="phone">Номер телефона</label>
                   <div className={`phone-control${phone.length > 2 && !isComplete ? ' phone-control--invalid' : ''}`}>
                     <span className="phone-country" aria-hidden="true">🇷🇺 <span>+7</span></span>
@@ -135,6 +154,51 @@ function App() {
                     {isSubmitting ? 'Входим…' : 'Продолжить'} <span aria-hidden="true">→</span>
                   </button>
                   {error && <p className="request-error" role="alert">{error}</p>}
+                </form>
+              </>
+            ) : (
+              <>
+                <p className="eyebrow">Подтверждение номера</p>
+                <h1 id="auth-title">Введите код из СМС</h1>
+                <p className="intro">Код для номера {phone}</p>
+
+                <form className="phone-form" onSubmit={handleCodeSubmit} noValidate>
+                  <label className="phone-label" htmlFor="sms-code">Код подтверждения</label>
+                  <input
+                    className="sms-code-input"
+                    id="sms-code"
+                    name="sms-code"
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    pattern="[0-9]*"
+                    maxLength={4}
+                    placeholder="····"
+                    value={code}
+                    onChange={(event) => {
+                      setCode(event.target.value.replace(/\D/g, '').slice(0, 4));
+                      setError('');
+                    }}
+                    aria-describedby={error ? 'code-hint code-error' : 'code-hint'}
+                    aria-invalid={Boolean(error)}
+                    disabled={isSubmitting}
+                  />
+                  <p className="code-hint" id="code-hint">Для демонстрации введите 0000</p>
+                  {error && <p className="request-error" id="code-error" role="alert">{error}</p>}
+                  <button className="submit-button" type="submit" disabled={code.length !== 4 || isSubmitting}>
+                    {isSubmitting ? 'Входим…' : 'Подтвердить'} <span aria-hidden="true">→</span>
+                  </button>
+                  <button
+                    className="change-phone-button"
+                    type="button"
+                    onClick={() => {
+                      setStep('phone');
+                      setCode('');
+                      setError('');
+                    }}
+                  >
+                    Изменить номер
+                  </button>
                 </form>
               </>
             )}

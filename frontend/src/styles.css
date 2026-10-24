@@ -177,6 +177,38 @@ h1 {
   font-size: 18px;
 }
 
+.sms-code-input {
+  width: 100%;
+  height: 64px;
+  padding: 0 18px;
+  border: 1px solid #bcbcbc;
+  border-radius: 3px;
+  outline: 0;
+  color: var(--ink);
+  background: #fff;
+  font-family: Arial, sans-serif;
+  font-size: 25px;
+  font-weight: 600;
+  letter-spacing: 0.45em;
+  text-align: center;
+  transition: border-color 140ms ease, box-shadow 140ms ease;
+}
+
+.sms-code-input:focus {
+  border-color: var(--alfa-red);
+  box-shadow: 0 0 0 3px rgb(239 49 36 / 10%);
+}
+
+.sms-code-input[aria-invalid="true"] { border-color: #cc261d; }
+.sms-code-input::placeholder { color: #b8b8b8; }
+
+.code-hint {
+  margin: 10px 0 0;
+  color: #777;
+  font-family: Arial, sans-serif;
+  font-size: 13px;
+}
+
 .field-hint, .field-error {
   min-height: 18px;
   margin: 8px 0 0;
@@ -252,6 +284,21 @@ h1 {
 }
 
 .logout-button:hover { color: var(--alfa-red); }
+
+.change-phone-button {
+  display: block;
+  margin: 16px auto 0;
+  padding: 8px 10px;
+  border: 0;
+  color: #555;
+  background: transparent;
+  cursor: pointer;
+  font-size: 13px;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.change-phone-button:hover { color: var(--alfa-red); }
 
 .loading-screen {
   display: grid;

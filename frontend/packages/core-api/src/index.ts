@@ -33,6 +33,9 @@ export class ApiError extends Error {
   }
 }
 
+const MOCK_SMS_CODE = '0000';
+const pendingMockSms = new Set<string>();
+
 function readApiError(payload: unknown, fallback: string): string {
   if (typeof payload === 'object' && payload !== null) {
     if ('error' in payload) {
@@ -94,6 +97,12 @@ export function createApiClient(
   }
 
   return {
+    requestMockSmsCode(phone: string) {
+      pendingMockSms.add(phone);
+    },
+    verifyMockSmsCode(phone: string, code: string) {
+      return pendingMockSms.has(phone) && code === MOCK_SMS_CODE;
+    },
     createSession(phone: string) {
       return request<AuthSession>('/auth/session', {
         method: 'POST',
