@@ -222,6 +222,49 @@ export function createApiClient(
         body: { phone, code },
       });
     },
+    getCurrentUser(token: string) {
+      return request<UserProfile>('/me', { token });
+    },
+    async getProducts() {
+      const response = await request<{ products: Product[] }>('/products');
+      return response.products;
+    },
+    getProductDetail(code: string) {
+      return request<ProductDetail>(`/products/${encodeURIComponent(code)}`);
+    },
+    async getApplications(token: string) {
+      const response = await request<{ applications: ApplicationCard[] }>('/applications', { token });
+      return response.applications;
+    },
+    getApplicationDetail(token: string, applicationId: string) {
+      return request<ApplicationDetail>(`/applications/${encodeURIComponent(applicationId)}`, { token });
+    },
+    createApplication(token: string, application: ApplicationCreateRequest) {
+      return request<ApplicationCard>('/applications', { method: 'POST', token, body: application });
+    },
+    confirmApplication(token: string, applicationId: string, confirmation: ApplicationConfirmRequest) {
+      return request<ApplicationDetail>(`/applications/${encodeURIComponent(applicationId)}/confirm`, {
+        method: 'POST',
+        token,
+        body: confirmation,
+      });
+    },
+    async getCredits(token: string) {
+      const response = await request<{ credits: CreditCard[] }>('/credits', { token });
+      return response.credits;
+    },
+    getCreditDetail(token: string, creditId: string) {
+      return request<CreditDetail>(`/credits/${encodeURIComponent(creditId)}`, { token });
+    },
+    async getDashboardData(token: string): Promise<Cabinet> {
+      const [user, products, applications, credits] = await Promise.all([
+        this.getCurrentUser(token),
+        this.getProducts(),
+        this.getApplications(token),
+        this.getCredits(token),
+      ]);
+      return { user, products, applications, credits };
+    },
     deleteSession(token: string) {
       return request<void>('/auth/session', { method: 'DELETE', token });
     },
