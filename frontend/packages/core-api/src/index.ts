@@ -126,9 +126,6 @@ export type ApplicationConfirmRequest = {
 export type Cabinet = {
   user: UserProfile;
   products: Product[];
-    code: string;
-    title: string;
-  }>;
   applications: ApplicationCard[];
   credits: CreditCard[];
 };
@@ -222,6 +219,9 @@ export function createApiClient(
         body: { phone, code },
       });
     },
+    deleteSession(token: string) {
+      return request<void>('/auth/session', { method: 'DELETE', token });
+    },
     getCurrentUser(token: string) {
       return request<UserProfile>('/me', { token });
     },
@@ -264,9 +264,6 @@ export function createApiClient(
         this.getCredits(token),
       ]);
       return { user, products, applications, credits };
-    },
-    deleteSession(token: string) {
-      return request<void>('/auth/session', { method: 'DELETE', token });
     },
   };
 }
