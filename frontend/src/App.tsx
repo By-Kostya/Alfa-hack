@@ -697,8 +697,11 @@ function App() {
                   )}
                 </section>
               )
-            ) : step === 'phone' ? (
+            ) : route !== ROUTES.code ? (
               <>
+                <div className="auth-progress" aria-label="Шаг 1 из 2">
+                  <strong>01</strong><span>Вход по номеру телефона</span><i><span /></i>
+                </div>
                 <p className="eyebrow">Личный кабинет</p>
                 <h1 id="auth-title">Вход по номеру телефона</h1>
                 <p className="intro">Введите номер телефона, чтобы войти в кабинет</p>
@@ -727,13 +730,16 @@ function App() {
                     {phone.length > 2 && !isComplete ? 'Проверьте номер телефона' : ''}
                   </p>
                   <button className="submit-button" type="submit" disabled={!isComplete || isSubmitting}>
-                    {isSubmitting ? 'Входим…' : 'Продолжить'} <span aria-hidden="true">→</span>
+                    {isSubmitting ? 'Отправляем код…' : 'Продолжить'} <span aria-hidden="true">→</span>
                   </button>
                   {error && <p className="request-error" role="alert">{error}</p>}
                 </form>
               </>
             ) : (
               <>
+                <div className="auth-progress auth-progress--code" aria-label="Шаг 2 из 2">
+                  <strong>02</strong><span>Подтверждение номера</span><i><span /></i>
+                </div>
                 <p className="eyebrow">Подтверждение номера</p>
                 <h1 id="auth-title">Введите код из СМС</h1>
                 <p className="intro">Код для номера {phone}</p>
@@ -759,7 +765,9 @@ function App() {
                     aria-invalid={Boolean(error)}
                     disabled={isSubmitting}
                   />
-                  <p className="code-hint" id="code-hint">Для демонстрации введите 0000</p>
+                  <p className="code-hint" id="code-hint">
+                    {smsMessage} Для демонстрации введите {smsCodeHint}
+                  </p>
                   {error && <p className="request-error" id="code-error" role="alert">{error}</p>}
                   <button className="submit-button" type="submit" disabled={code.length !== 4 || isSubmitting}>
                     {isSubmitting ? 'Входим…' : 'Подтвердить'} <span aria-hidden="true">→</span>
@@ -768,9 +776,12 @@ function App() {
                     className="change-phone-button"
                     type="button"
                     onClick={() => {
-                      setStep('phone');
+                      sessionStorage.removeItem(PENDING_PHONE_KEY);
+                      navigateTo(ROUTES.login);
                       setCode('');
                       setError('');
+                      setSmsMessage('');
+                      setSmsCodeHint('0000');
                     }}
                   >
                     Изменить номер
@@ -804,10 +815,19 @@ function getProductTitle(cabinet: Cabinet, code: string): string {
   return cabinet.products.find((product) => product.code === code)?.title ?? code;
 }
 
-function getProductDescription(code: string): string {
-  if (code === 'working_capital') return 'Пополнить оборот действующего бизнеса';
-  if (code === 'startup') return 'Запустить новое дело по бизнес-плану';
-  return 'Посмотреть условия продукта';
+function getProductFieldTitle(field: string): string {
+  const labels: Record<string, string> = {
+    loan_amount_rub: 'Сумма кредита',
+    loan_term_months: 'Срок кредита',
+    purpose: 'Цель кредита',
+    profitability_rub: 'Оборот бизнеса',
+    profitability_confirmed: 'Подтверждение оборота',
+    collateral: 'Залог',
+    business_plan: 'Бизнес-план',
+    own_funds_rub: 'Собственные средства',
+    credit_rating: 'Кредитный рейтинг',
+  };
+  return labels[field] ?? 'Дополнительные данные';
 }
 
 function getApplicationStatus(status: string, decision: string | null): string {
@@ -824,13 +844,73 @@ function formatRub(value: number | null): string {
   return `${new Intl.NumberFormat('ru-RU').format(value)} ₽`;
 }
 
+function formatCompactRub(value: number): string {
+  return new Intl.NumberFormat('ru-RU', {
+    style: 'currency',
+    currency: 'RUB',
+    notation: 'compact',
+    maximumFractionDigits: 1,
+  }).format(value);
+}
+
 function formatShortDate(value: string): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '';
   return new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long' }).format(date);
 }
 
-function WelcomeScreen({ phone, onContinue }: { phone: string; onContinue: () => void }) {
+function CompanyProfileCard({ company }: { company: CompanyProfile }) {
+  const displayName = company.short_name || company.name || 'Профиль компании';
+
+  return (
+    <section className="company-profile" aria-labelledby="company-profile-title">
+      <header className="company-profile-heading">
+        <div>
+          <p className="company-profile-kicker"><span /> ПРОФИЛЬ КОМПАНИИ</p>
+          <h2 id="company-profile-title">{displayName}</h2>
+          {company.name && company.name !== displayName && <p className="company-profile-legal-name">{company.name}</p>}
+        </div>
+        {company.status && <span className="company-profile-status">{company.status}</span>}
+      </header>
+
+      <div className="company-profile-metrics">
+        <article className="company-profile-metric company-profile-metric--limit">
+          <span>Предварительный лимит</span>
+          <strong>{formatRub(company.preapproved_limit_rub ?? null)}</strong>
+          <small>для развития бизнеса</small>
+        </article>
+        <article className="company-profile-metric">
+          <span>Ежемесячная выручка</span>
+          <strong>{formatRub(company.monthly_revenue_rub ?? null)}</strong>
+          <small>по данным профиля</small>
+        </article>
+        <article className="company-profile-metric">
+          <span>Кредитный рейтинг</span>
+          <strong>{company.credit_rating ?? '—'}</strong>
+          <small>{company.rating_grade || 'Рейтинг компании'}</small>
+        </article>
+      </div>
+
+      <dl className="company-profile-details">
+        {company.inn && <div><dt>ИНН</dt><dd>{company.inn}</dd></div>}
+        {company.ogrn && <div><dt>ОГРН</dt><dd>{company.ogrn}</dd></div>}
+        {company.registration_date && (
+          <div><dt>Дата регистрации</dt><dd>{formatCompanyDate(company.registration_date)}</dd></div>
+        )}
+        {company.okved && <div className="company-profile-details-wide"><dt>Основной вид деятельности</dt><dd>{company.okved}</dd></div>}
+      </dl>
+    </section>
+  );
+}
+
+function formatCompanyDate(value: string): string {
+  const date = new Date(`${value.slice(0, 10)}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' }).format(date);
+}
+
+function WelcomeScreen({ user, onContinue }: { user: UserProfile; onContinue: () => void }) {
+  const firstName = user.full_name?.trim().split(/\s+/)[1];
   return (
     <main className="welcome-screen" aria-labelledby="welcome-title">
       <div className="welcome-shape welcome-shape--one" aria-hidden="true" />
@@ -845,15 +925,16 @@ function WelcomeScreen({ phone, onContinue }: { phone: string; onContinue: () =>
       </header>
 
       <section className="welcome-copy">
-        <p className="welcome-kicker"><span /> Рады видеть вас</p>
+        <p className="welcome-kicker"><span /> {firstName ? `Рады видеть вас, ${firstName}` : 'Рады видеть вас'}</p>
         <h1 id="welcome-title">Добро<br />пожаловать</h1>
         <div className="welcome-rule" aria-hidden="true" />
         <p className="welcome-caption">Ваш личный кабинет готов</p>
         <div className="welcome-profile">
-          <span className="welcome-profile-icon" aria-hidden="true">+7</span>
+          <span className="welcome-profile-icon" aria-hidden="true">{getUserInitials(user.full_name)}</span>
           <span className="welcome-profile-copy">
-            <span>Вход выполнен для номера</span>
-            <strong>{phone}</strong>
+            <span>{user.role || 'Личный кабинет'}</span>
+            <strong>{user.full_name || user.phone}</strong>
+            <small>{[user.email, user.phone].filter(Boolean).join(' · ')}</small>
           </span>
           <span className="welcome-profile-check" aria-label="Вход выполнен">✓</span>
         </div>
@@ -870,6 +951,16 @@ function WelcomeScreen({ phone, onContinue }: { phone: string; onContinue: () =>
       </footer>
     </main>
   );
+}
+
+function getShortUserName(fullName?: string | null): string | null {
+  const parts = fullName?.trim().split(/\s+/).filter(Boolean);
+  return parts?.length ? parts.slice(0, 2).join(' ') : null;
+}
+
+function getUserInitials(fullName?: string | null): string {
+  const initials = fullName?.trim().split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join('');
+  return initials?.toLocaleUpperCase('ru-RU') || 'А';
 }
 
 export default App;
