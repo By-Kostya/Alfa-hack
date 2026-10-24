@@ -1,21 +1,70 @@
-import { useEffect, useState, type FormEvent } from 'react';
-import { ApiError, createApiClient, type Cabinet } from '@alfa-hack/core-api';
+import { useEffect, useRef, useState, type FormEvent, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from 'react';
+import {
+  ApiError,
+  createApiClient,
+  type ApplicationDetail,
+  type Cabinet,
+  type CompanyProfile,
+  type CreditDetail,
+  type ProductDetail,
+  type UserProfile,
+} from '@alfa-hack/core-api';
 import { formatRussianPhone, isRussianPhoneComplete, normalizeRussianPhone } from '@alfa-hack/core-auth';
 
 const TOKEN_KEY = 'alfa-hack:token';
+const PENDING_PHONE_KEY = 'alfa-hack:pending-phone';
 const WELCOME_DURATION_MS = 3000;
 const api = createApiClient();
+const ROUTES = {
+  login: '/',
+  code: '/verify',
+  welcome: '/welcome',
+  dashboard: '/dashboard',
+  productChoice: '/dashboard/credit',
+} as const;
+type AppRoute = typeof ROUTES[keyof typeof ROUTES];
+
+function normalizeRoute(path: string): AppRoute {
+  if (Object.values(ROUTES).includes(path as AppRoute)) return path as AppRoute;
+  if (path === '/login') return ROUTES.login;
+  return ROUTES.login;
+}
+type CabinetDetail =
+  | { kind: 'application'; value: ApplicationDetail }
+  | { kind: 'credit'; value: CreditDetail };
 
 function App() {
-  const [phone, setPhone] = useState('+7');
-  const [step, setStep] = useState<'phone' | 'code'>('phone');
+  const [route, setRoute] = useState<AppRoute>(() => normalizeRoute(window.location.pathname));
+  const [phone, setPhone] = useState(() => formatRussianPhone(sessionStorage.getItem(PENDING_PHONE_KEY) || '+7'));
   const [code, setCode] = useState('');
   const [cabinet, setCabinet] = useState<Cabinet | null>(null);
-  const [cabinetScreen, setCabinetScreen] = useState<'welcome' | 'dashboard' | 'product-choice'>('dashboard');
+  const [activeProductIndex, setActiveProductIndex] = useState(0);
   const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
+  const [selectedProductDetail, setSelectedProductDetail] = useState<ProductDetail | null>(null);
+  const [isLoadingProductDetail, setIsLoadingProductDetail] = useState(false);
+  const [productDetailError, setProductDetailError] = useState('');
+  const [smsMessage, setSmsMessage] = useState('');
+  const [smsCodeHint, setSmsCodeHint] = useState('0000');
+  const [cabinetDetail, setCabinetDetail] = useState<CabinetDetail | null>(null);
+  const [isLoadingCabinetDetail, setIsLoadingCabinetDetail] = useState(false);
+  const [cabinetDetailError, setCabinetDetailError] = useState('');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isRestoring, setIsRestoring] = useState(() => Boolean(sessionStorage.getItem(TOKEN_KEY)));
+  const cabinetDetailRequestId = useRef(0);
+  const productCarouselRef = useRef<HTMLDivElement | null>(null);
+  const productSlideRefs = useRef<Array<HTMLElement | null>>([]);
+  const productDragRef = useRef<{ pointerId: number; startX: number; startScrollLeft: number; didDrag: boolean } | null>(null);
+  const suppressCarouselClickRef = useRef(false);
+
+  function navigateTo(nextRoute: AppRoute, replace = false) {
+    const normalizedRoute = normalizeRoute(nextRoute);
+    if (window.location.pathname !== normalizedRoute) {
+      const method = replace ? 'replaceState' : 'pushState';
+      window.history[method]({}, '', normalizedRoute);
+    }
+    setRoute(normalizedRoute);
+  }
 
   const isComplete = isRussianPhoneComplete(phone);
   const normalizedPhone = normalizeRussianPhone(phone);
