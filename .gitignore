@@ -1,1 +1,22 @@
 .DS_Store
+# Виртуальное окружение
+venv/
+.venv/
+env/
+
+# Кэш Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# База данных SQLite
+*.sqlite3
+*.db
+
+# Переменные окружения и секреты
+.env
+
+# Логи и временные файлы IDE
+.vscode/
+.idea/
+*.log
