@@ -326,15 +326,56 @@ function App() {
     }
   }
 
+  function closeCabinetDetail() {
+    cabinetDetailRequestId.current += 1;
+    setCabinetDetail(null);
+    setCabinetDetailError('');
+    setIsLoadingCabinetDetail(false);
+  }
+
+  async function showApplicationDetail(applicationId: string) {
+    const token = sessionStorage.getItem(TOKEN_KEY);
+    if (!token) return;
+    const requestId = ++cabinetDetailRequestId.current;
+    setCabinetDetail(null);
+    setCabinetDetailError('');
+    setIsLoadingCabinetDetail(true);
+    try {
+      const value = await api.getApplicationDetail(token, applicationId);
+      if (requestId === cabinetDetailRequestId.current) setCabinetDetail({ kind: 'application', value });
+    } catch (requestError) {
+      if (requestId === cabinetDetailRequestId.current) setCabinetDetailError(getErrorMessage(requestError));
+    } finally {
+      if (requestId === cabinetDetailRequestId.current) setIsLoadingCabinetDetail(false);
+    }
+  }
+
+  async function showCreditDetail(creditId: string) {
+    const token = sessionStorage.getItem(TOKEN_KEY);
+    if (!token) return;
+    const requestId = ++cabinetDetailRequestId.current;
+    setCabinetDetail(null);
+    setCabinetDetailError('');
+    setIsLoadingCabinetDetail(true);
+    try {
+      const value = await api.getCreditDetail(token, creditId);
+      if (requestId === cabinetDetailRequestId.current) setCabinetDetail({ kind: 'credit', value });
+    } catch (requestError) {
+      if (requestId === cabinetDetailRequestId.current) setCabinetDetailError(getErrorMessage(requestError));
+    } finally {
+      if (requestId === cabinetDetailRequestId.current) setIsLoadingCabinetDetail(false);
+    }
+  }
+
   if (isRestoring) {
     return <main className="loading-screen" role="status">Загружаем личный кабинет…</main>;
   }
 
-  if (cabinet && cabinetScreen === 'welcome') {
+  if (cabinet && route === ROUTES.welcome) {
     return (
       <WelcomeScreen
-        phone={cabinet.user.phone}
-        onContinue={() => setCabinetScreen('dashboard')}
+        user={cabinet.user}
+        onContinue={() => navigateTo(ROUTES.dashboard)}
       />
     );
   }
@@ -346,6 +387,28 @@ function App() {
           <div className="wordmark" aria-label="Альфа-Бизнес">
             <span className="wordmark__alpha">Альфа</span><span className="wordmark__bank">Бизнес</span>
           </div>
+          {cabinet && (
+            <details className="topbar-account">
+              <summary className="topbar-account-trigger" aria-label={`Профиль пользователя ${cabinet.user.full_name || cabinet.user.phone}`}>
+                <span className="topbar-account-avatar" aria-hidden="true">{getUserInitials(cabinet.user.full_name)}</span>
+                <span className="topbar-account-copy">
+                  <span>{cabinet.user.role || 'Личный кабинет'}</span>
+                  <strong>{getShortUserName(cabinet.user.full_name) || cabinet.user.phone}</strong>
+                  <small>{cabinet.user.email || cabinet.user.phone}</small>
+                </span>
+                <span className="topbar-account-caret" aria-hidden="true">⌄</span>
+              </summary>
+              <div className="topbar-account-panel">
+                <p>ПРОФИЛЬ</p>
+                <strong>{cabinet.user.full_name || cabinet.user.phone}</strong>
+                <dl>
+                  {cabinet.user.role && <div><dt>Должность</dt><dd>{cabinet.user.role}</dd></div>}
+                  {cabinet.user.email && <div><dt>Электронная почта</dt><dd>{cabinet.user.email}</dd></div>}
+                  <div><dt>Телефон</dt><dd>{cabinet.user.phone}</dd></div>
+                </dl>
+              </div>
+            </details>
+          )}
         </header>
 
         <div className={`auth-content${cabinet ? ' auth-content--dashboard' : ''}`}>
