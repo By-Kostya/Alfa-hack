@@ -32,10 +32,33 @@ TERM = 12
 SEED = 23
 HOLDOUT = 0.2
 HIDDEN = 256
+# Ступени лимита. Этот кортеж читает формула фолбека в serve_demo.
+# 350000 — сумма запроса, не ступень, в AMOUNTS её нет.
 AMOUNTS = (300_000, 800_000, 2_000_000)
-RATINGS = (50, 280, 500, 750, 930)
-OWN_FUNDS = (None, 100_000, 700_000)
+REQUEST_AMOUNTS = (300_000, 350_000, 800_000, 2_000_000)
+RATINGS = (50, 280, 500, 750, 930, 999)
+OWN_FUNDS = (None, 100_000, 150_000, 700_000)
+TERMS = (12, 18, 24, 30, 36, 42, 48, 54, 60)
 LIMITS = (0, 300_000, 800_000, 2_000_000)
+IT_PLAN = "plans/long/02_it_разработка.docx"
+SYNTH_PLAN = "synthetic"
+SYNTH_QUOTE = "синтетическая строка"
+SYNTH_FLOWS = (-150_000, -15_000, 20_000, 45_000, 90_000, 160_000, 400_000, 1_000_000)
+SYNTH_RISK_LISTS = (
+    ("empty", []),
+    ("thin_margin", ["thin_margin"]),
+    ("seasonality_fixed_costs", ["seasonality", "fixed_costs"]),
+    ("negative_unit_economics", ["negative_unit_economics"]),
+)
+DEMO_LIMITS = {
+    "01_кафе": {300_000: 300_000, 800_000: 300_000, 2_000_000: 300_000},
+    "02_it_разработка": {300_000: 300_000, 800_000: 800_000, 2_000_000: 2_000_000},
+    "03_автомойка": {300_000: 300_000, 800_000: 300_000, 2_000_000: 300_000},
+    "04_доставка": {300_000: 0, 800_000: 0, 2_000_000: 0},
+    "05_найди_собаку": {300_000: 0, 800_000: 0, 2_000_000: 0},
+    "06_барахолка": {300_000: 0, 800_000: 0, 2_000_000: 0},
+    "07_одежда_китай": {300_000: 300_000, 800_000: 300_000, 2_000_000: 300_000},
+}
 
 # Порядок как в промпте энкодера. Холодный старт в этих отчётах не встретился,
 # столбец остаётся нулевым, чтобы каждый допустимый риск был входом.
@@ -124,90 +147,125 @@ def annuity(principal: int, term: int = TERM) -> int:
     return int(raw.quantize(Decimal("1"), rounding=ROUND_HALF_UP))
 
 
-def coverage_cap(flow: int, amount: int) -> int:
+def largest_step(amount: int) -> int:
+    fitted = [tier for tier in AMOUNTS if tier <= amount]
+    return fitted[-1] if fitted else 0
+
+
+def coverage_cap(flow: int, amount: int, term: int) -> int:
     cap = 0
     for tier in AMOUNTS:
-        if tier <= amount and flow >= annuity(tier):
+        if tier <= amount and flow >= annuity(tier, term):
             cap = tier
     return cap
 
 
-def task_id(plan_file: str, amount: int, rating: int, own: int | None) -> str:
+def task_id(
+    plan_file: str,
+    amount: int,
+    rating: int,
+    own: int | None,
+    term: int,
+    flow: int | None = None,
+    risk_key: str | None = None,
+) -> str:
     stem = Path(plan_file).stem[:2]
     own_part = "null" if own is None else str(own)
-    return f"limit-{stem}-a{amount}-r{rating}-own-{own_part}"
+    base = f"limit-{stem}-a{amount}-r{rating}-own-{own_part}-t{term}"
+    if flow is not None:
+        base += f"-flow{flow}-risk-{risk_key}"
+    return base
 
 
-def is_it(flow: int, risks: set[str]) -> bool:
-    return flow >= 150_000 and "lumpy_revenue" in risks and "client_concentration" in risks
+def is_it(plan_file: str, flow: int, risks: set[str]) -> bool:
+    return (
+        plan_file == IT_PLAN
+        and flow >= 150_000
+        and "lumpy_revenue" in risks
+        and "client_concentration" in risks
+    )
+
+
+def payment_relation(flow: int, payment: int) -> str:
+    if flow >= payment:
+        return f"поток закрывает платёж {rub(payment)}, запас {rub(flow - payment)}"
+    return f"платёж {rub(payment)} выше потока на {rub(payment - flow)}"
 
 
 def decide(row: dict) -> tuple[int, str]:
     """Лимит разметчика. Скорер к этому моменту ещё ничего не предсказывал.
 
-    Сравнение — поток против аннуитета. Выше запрошенной суммы лимит не ставится.
-    Ноль — отказ. Слабый и отрицательный поток не получают 2 000 000.
-    IT около 160 000 не срезается до 800 000, если рейтинг не обвальный (обвальный — 50).
-    Доставка, поиск собаки и барахолка полный запрос не получают.
+    Сравнение — поток против аннуитета на срок этой строки. Выше запрошенной
+    суммы лимит не ставится. Ноль — отказ. 350000 не ступень и не возвращается.
+    Исключение IT только для plans/long/02_it_разработка.docx.
     """
     report = row["encoder"]
     flow = int(report["inferred_monthly_flow_rub"])
     risks = list(report["risks"])
     risk_set = set(risks)
     amount = int(row["loan_amount_rub"])
+    term = int(row["loan_term_months"])
     payment = int(row["monthly_payment_rub"])
     rating = int(row["credit_rating"])
     own = row["own_funds_rub"]
-    named = risks_text(risks)
-    gap = flow - payment
+    named = risks_text(risks) if risks else "нет"
+    pay_300 = annuity(300_000, term)
+    pay_800 = annuity(800_000, term)
+    pay_2000 = annuity(2_000_000, term)
 
     if flow <= 0:
         return (
             0,
-            f"Поток {rub(flow)} руб. в месяц, платёж по запросу {rub(amount)} равен {rub(payment)} руб. "
+            f"Поток {rub(flow)} руб. в месяц, платёж по запросу {rub(amount)} на {term} мес. равен {rub(payment)} руб. "
             f"Гасить нечем: дело каждый месяц в минусе. Риски: {named}. "
             f"Полный запрос не даю и меньший лимит тоже не даю — отрицательный поток не обслуживает ни одну сумму. Отказ.",
         )
 
-    if is_it(flow, risk_set):
+    if is_it(report["plan_file"], flow, risk_set):
         if rating >= 280:
-            if amount == 2_000_000:
+            if amount in AMOUNTS:
+                if amount == 2_000_000:
+                    return (
+                        2_000_000,
+                        f"Поток {rub(flow)} руб., аннуитет на 2 000 000 при сроке {term} мес. равен {rub(payment)} руб., "
+                        f"{payment_relation(flow, payment)}. Это не слабый поток. "
+                        f"Рейтинг {rating} не обвальный, поэтому до 800 000 не срезаю. "
+                        f"{own_text(own).capitalize()}. Риски: {named}. Лимит 2 000 000.",
+                    )
                 return (
-                    2_000_000,
-                    f"Поток {rub(flow)} руб., аннуитет на 2 000 000 равен {rub(payment)} руб., "
-                    f"недобор {rub(payment - flow)} руб. в месяц. Это не слабый поток. "
-                    f"Рейтинг {rating} не обвальный, поэтому до 800 000 не срезаю. "
-                    f"{own_text(own).capitalize()}. Риски: {named}. Лимит 2 000 000.",
+                    amount,
+                    f"Поток {rub(flow)} руб. против платежа {rub(payment)} руб. на {term} мес., "
+                    f"{payment_relation(flow, payment)}. "
+                    f"Рейтинг {rating} не обвальный, риски ({named}) этот запас не съедают. "
+                    f"{own_text(own).capitalize()}. Лимит равен запросу {rub(amount)}.",
                 )
             return (
-                amount,
-                f"Поток {rub(flow)} руб. против платежа {rub(payment)} руб., запас {rub(gap)} руб. "
-                f"Рейтинг {rating} не обвальный, риски ({named}) этот запас не съедают. "
-                f"{own_text(own).capitalize()}. Лимит равен запросу {rub(amount)}.",
+                300_000,
+                f"Запрос {rub(amount)} ступенью не является. Наибольшая ступень не выше запроса — 300 000, "
+                f"её платёж на {term} мес. равен {rub(pay_300)}. Поток {rub(flow)} руб., {payment_relation(flow, pay_300)}. "
+                f"Рейтинг {rating}. {own_text(own).capitalize()}. Риски: {named}. Лимит 300 000.",
             )
         return (
             300_000,
-            f"Поток {rub(flow)} руб. закрыл бы и платёж 74 108 на 800 000, но рейтинг {rating} обвальный, "
-            f"а выручка рваная и сидит на нескольких клиентах. На 2 000 000 платёж 185 269 уже выше потока. "
-            f"Оставляю 300 000: платёж {rub(annuity(300_000))} поток держит с большим запасом. Выше не иду.",
+            f"Поток {rub(flow)} руб. На 800 000 при сроке {term} мес. платёж {rub(pay_800)}: {payment_relation(flow, pay_800)}. "
+            f"Рейтинг {rating} обвальный, а выручка рваная и сидит на нескольких клиентах. "
+            f"На 2 000 000 платёж {rub(pay_2000)}: {payment_relation(flow, pay_2000)}. "
+            f"Оставляю 300 000: платёж {rub(pay_300)} поток держит с большим запасом. Выше не иду.",
         )
 
-    cap = coverage_cap(flow, amount)
-    tight = flow < annuity(800_000)
-    pay_300 = annuity(300_000)
-    pay_800 = annuity(800_000)
-    pay_2000 = annuity(2_000_000)
+    cap = coverage_cap(flow, amount, term)
+    tight = flow < pay_800
 
     if cap == 0:
         return (
             0,
-            f"Поток {rub(flow)} руб. ниже даже платежа {rub(pay_300)} на 300 000. Риски: {named}. Отказ.",
+            f"Поток {rub(flow)} руб. ниже даже платежа {rub(pay_300)} на 300 000 при сроке {term} мес. Риски: {named}. Отказ.",
         )
 
     if own is None:
         return (
             0,
-            f"Поток {rub(flow)} руб., платёж на запрошенные {rub(amount)} равен {rub(payment)} руб. "
+            f"Поток {rub(flow)} руб., платёж на запрошенные {rub(amount)} при сроке {term} мес. равен {rub(payment)} руб. "
             f"Свои деньги не указаны, доход и капитал не подтверждены, опереться не на что. Риски: {named}. Отказ.",
         )
 
@@ -215,9 +273,9 @@ def decide(row: dict) -> tuple[int, str]:
         if (not tight) and own >= 700_000:
             return (
                 300_000,
-                f"Поток {rub(flow)} руб. покрывает платёж {rub(pay_800)} на 800 000, но рейтинг {rating} обвальный. "
+                f"Поток {rub(flow)} руб. покрывает платёж {rub(pay_800)} на 800 000 при сроке {term} мес., но рейтинг {rating} обвальный. "
                 f"Свои {rub(own)} руб. и запас потока позволяют только малый лимит: платёж {rub(pay_300)}. "
-                f"На 2 000 000 платёж {rub(pay_2000)} выше потока. Риски: {named}. Лимит 300 000.",
+                f"На 2 000 000 платёж {rub(pay_2000)}: {payment_relation(flow, pay_2000)}. Риски: {named}. Лимит 300 000.",
             )
         return (
             0,
@@ -230,7 +288,7 @@ def decide(row: dict) -> tuple[int, str]:
             return (
                 min(cap, 300_000),
                 f"Поток {rub(flow)} руб. Рейтинг {rating} слабый, хотя и не обвальный. "
-                f"Свои {rub(own)} руб. тянут малый платёж {rub(pay_300)}, но не больший лимит. "
+                f"Свои {rub(own)} руб. тянут малый платёж {rub(pay_300)} на {term} мес., но не больший лимит. "
                 f"Риски: {named}. Лимит 300 000.",
             )
         return (
@@ -242,7 +300,7 @@ def decide(row: dict) -> tuple[int, str]:
     if tight:
         return (
             min(cap, 300_000),
-            f"Поток {rub(flow)} руб. покрывает только платёж {rub(pay_300)} и не покрывает {rub(pay_800)} и {rub(pay_2000)}. "
+            f"Поток {rub(flow)} руб. покрывает только платёж {rub(pay_300)} на {term} мес. и не покрывает {rub(pay_800)} и {rub(pay_2000)}. "
             f"Слабый поток на 2 000 000 не получает 2 000 000 и не получает 800 000. "
             f"{own_text(own).capitalize()}, рейтинг {rating}. Риски: {named}. Лимит 300 000.",
         )
@@ -252,14 +310,14 @@ def decide(row: dict) -> tuple[int, str]:
         if amount >= 2_000_000 and limit < amount:
             return (
                 limit,
-                f"Поток {rub(flow)} руб. покрывает платёж {rub(pay_800)} на 800 000 "
+                f"Поток {rub(flow)} руб. покрывает платёж {rub(pay_800)} на 800 000 при сроке {term} мес. "
                 f"(запас {rub(flow - pay_800)}) и не покрывает платёж {rub(pay_2000)} на 2 000 000. "
                 f"Для двух миллионов поток слабый. Свои {rub(own)} руб. и рейтинг {rating} подтверждают 800 000, не выше. "
                 f"Риски: {named}. Лимит {rub(limit)}.",
             )
         return (
             limit,
-            f"Поток {rub(flow)} руб. против платежа {rub(payment)}, запас {rub(gap)} руб. "
+            f"Поток {rub(flow)} руб. против платежа {rub(payment)} на {term} мес., {payment_relation(flow, payment)}. "
             f"Свои {rub(own)} руб. закрывают просадку по рискам ({named}), рейтинг {rating}. "
             f"Лимит {rub(limit)}.",
         )
@@ -268,17 +326,52 @@ def decide(row: dict) -> tuple[int, str]:
     if limit == amount:
         return (
             limit,
-            f"Поток {rub(flow)} руб. закрывает платёж {rub(payment)} по запросу {rub(amount)}. "
+            f"Поток {rub(flow)} руб. закрывает платёж {rub(payment)} по запросу {rub(amount)} на {term} мес. "
             f"Свои деньги только {rub(own)} руб., для большего лимита этой подушки мало. Риски: {named}. Рейтинг {rating}. "
-            f"Платёж на 800 000 равен {rub(pay_800)}, на 2 000 000 — {rub(pay_2000)}, и крупный платёж поток уже не несёт. "
+            f"Платёж на 800 000 равен {rub(pay_800)}: {payment_relation(flow, pay_800)}. "
+            f"На 2 000 000 платёж {rub(pay_2000)}: {payment_relation(flow, pay_2000)}. "
             f"Лимит {rub(limit)}.",
         )
     return (
         limit,
-        f"Средний поток {rub(flow)} руб. выше платежа {rub(pay_800)} на 800 000, "
+        f"Средний поток {rub(flow)} руб. при сроке {term} мес. {payment_relation(flow, pay_800)} на 800 000, "
         f"но свои деньги только {rub(own)} руб. и не держат просадку. Риски: {named}. Рейтинг {rating}. "
-        f"На 2 000 000 платёж {rub(pay_2000)} и вовсе выше потока. Режу до 300 000: платёж {rub(pay_300)} поток закрывает.",
+        f"На 2 000 000 платёж {rub(pay_2000)}: {payment_relation(flow, pay_2000)}. "
+        f"Свои ниже 700 000, выше 300 000 не поднимаю. Платёж {rub(pay_300)} поток закрывает. Лимит 300 000.",
     )
+
+
+def make_task(
+    plan_file: str,
+    flow: int,
+    flow_basis: str,
+    risks: list[str],
+    quote: str,
+    amount: int,
+    rating: int,
+    own: int | None,
+    term: int,
+    risk_key: str | None = None,
+) -> dict:
+    confirmed = own is not None
+    return {
+        "id": task_id(plan_file, amount, rating, own, term, None if risk_key is None else flow, risk_key),
+        "own_funds_rub": own,
+        "income_confirmed": confirmed,
+        "costs_confirmed": False,
+        "capital_confirmed": confirmed,
+        "loan_amount_rub": amount,
+        "loan_term_months": term,
+        "credit_rating": rating,
+        "encoder": {
+            "plan_file": plan_file,
+            "inferred_monthly_flow_rub": flow,
+            "flow_basis": flow_basis,
+            "risks": list(risks),
+            "quote": quote,
+        },
+        "monthly_payment_rub": annuity(amount, term),
+    }
 
 
 def build_tasks(reports: list[dict]) -> list[dict]:
@@ -287,62 +380,129 @@ def build_tasks(reports: list[dict]) -> list[dict]:
         quote = report["quote"]
         if not quote:
             continue
-        for amount in AMOUNTS:
+        for amount in REQUEST_AMOUNTS:
             for rating in RATINGS:
                 for own in OWN_FUNDS:
-                    confirmed = own is not None
-                    rows.append(
-                        {
-                            "id": task_id(report["plan_file"], amount, rating, own),
-                            "own_funds_rub": own,
-                            "income_confirmed": confirmed,
-                            "costs_confirmed": False,
-                            "capital_confirmed": confirmed,
-                            "loan_amount_rub": amount,
-                            "loan_term_months": TERM,
-                            "credit_rating": rating,
-                            "encoder": {
-                                "plan_file": report["plan_file"],
-                                "inferred_monthly_flow_rub": report["inferred_monthly_flow_rub"],
-                                "flow_basis": report["flow_basis"],
-                                "risks": list(report["risks"]),
-                                "quote": quote,
-                            },
-                            "monthly_payment_rub": annuity(amount),
-                        }
-                    )
+                    for term in TERMS:
+                        rows.append(
+                            make_task(
+                                report["plan_file"],
+                                int(report["inferred_monthly_flow_rub"]),
+                                report["flow_basis"],
+                                list(report["risks"]),
+                                quote,
+                                amount,
+                                rating,
+                                own,
+                                term,
+                            )
+                        )
+    for flow in SYNTH_FLOWS:
+        for risk_key, risks in SYNTH_RISK_LISTS:
+            for amount in REQUEST_AMOUNTS:
+                for rating in RATINGS:
+                    for own in OWN_FUNDS:
+                        for term in TERMS:
+                            rows.append(
+                                make_task(
+                                    SYNTH_PLAN,
+                                    flow,
+                                    SYNTH_PLAN,
+                                    risks,
+                                    SYNTH_QUOTE,
+                                    amount,
+                                    rating,
+                                    own,
+                                    term,
+                                    risk_key,
+                                )
+                            )
     return rows
 
 
 def check_policy(rows: list[dict], labels: dict[str, dict]) -> None:
     counts: dict[str, int] = {}
     by_limit: dict[int, int] = {value: 0 for value in LIMITS}
+    seen: set[str] = set()
     for row in rows:
+        if row["id"] in seen:
+            raise SystemExit(f"повтор id {row['id']}")
+        seen.add(row["id"])
         plan = row["encoder"]["plan_file"]
         counts[plan] = counts.get(plan, 0) + 1
         limit = labels[row["id"]]["limit_rub"]
+        amount = int(row["loan_amount_rub"])
+        term = int(row["loan_term_months"])
+        flow = int(row["encoder"]["inferred_monthly_flow_rub"])
+        own = row["own_funds_rub"]
+        rating = int(row["credit_rating"])
+        risks = set(row["encoder"]["risks"])
+        if row["monthly_payment_rub"] != annuity(amount, term):
+            raise SystemExit(f"{row['id']}: платёж не аннуитет на срок строки")
         if limit not in LIMITS:
             raise SystemExit(f"{row['id']}: лимит {limit} вне шкалы")
-        if limit > row["loan_amount_rub"]:
+        if limit > amount:
             raise SystemExit(f"{row['id']}: лимит выше запроса")
-        flow = row["encoder"]["inferred_monthly_flow_rub"]
-        if flow <= 0 and limit == row["loan_amount_rub"]:
-            raise SystemExit(f"{row['id']}: отрицательный поток получил полный запрос")
-        if flow < 100_000 and limit == 2_000_000:
-            raise SystemExit(f"{row['id']}: слабый поток получил 2 000 000")
-        by_limit[limit] += 1
-        risks = set(row["encoder"]["risks"])
-        if is_it(flow, risks) and row["credit_rating"] >= 280 and limit != row["loan_amount_rub"]:
-            raise SystemExit(f"{row['id']}: IT срезан при рейтинге {row['credit_rating']}")
+        if flow <= 0 and limit != 0:
+            raise SystemExit(f"{row['id']}: отрицательный поток получил {limit}")
+        it = is_it(plan, flow, risks)
+        if it and rating >= 280:
+            expected = amount if amount in AMOUNTS else largest_step(amount)
+            if limit != expected:
+                raise SystemExit(f"{row['id']}: IT лимит {limit}, ожидался {expected}")
+        if it and rating < 280 and limit != 300_000:
+            raise SystemExit(f"{row['id']}: IT при рейтинге {rating} получил {limit}")
+        if (not it) and own is None and limit != 0:
+            raise SystemExit(f"{row['id']}: свои не указаны, лимит {limit}")
+        if (not it) and own is not None and own < 700_000 and limit > 300_000:
+            raise SystemExit(f"{row['id']}: свои {own} подняли лимит до {limit}")
+        if (not it) and limit == 2_000_000 and flow < annuity(2_000_000, term):
+            raise SystemExit(f"{row['id']}: поток {flow} не закрывает платёж на 2 000 000 при сроке {term}")
         weak_full = {"04_доставка", "05_найди_собаку", "06_барахолка"}
         if any(name in plan for name in weak_full) and limit != 0:
             raise SystemExit(f"{row['id']}: слабый план получил {limit}")
-    if len(set(counts.values())) != 1:
-        raise SystemExit(f"планы не поровну: {counts}")
-    if len(rows) > 400:
-        raise SystemExit(f"строк {len(rows)}, для MVP нужно не больше 400")
+        by_limit[limit] += 1
+    real = {plan: count for plan, count in counts.items() if plan != SYNTH_PLAN}
+    if len(real) != 7 or len(set(real.values())) != 1:
+        raise SystemExit(f"реальные планы не поровну: {real}")
+    if SYNTH_PLAN not in counts:
+        raise SystemExit("нет синтетики")
     print("строк", len(rows), "по планам", counts)
     print("лимиты", by_limit)
+
+
+def spot_label(plan: str, flow: int, risks: list[str], amount: int, term: int, rating: int, own: int | None) -> int:
+    row = make_task(plan, flow, "explicit", risks, "проверка", amount, rating, own, term)
+    limit, _reason = decide(row)
+    return limit
+
+
+def check_spots() -> None:
+    it_risks = ["client_concentration", "lumpy_revenue"]
+    cafe = "plans/long/01_кафе.docx"
+    pay24 = annuity(800_000, 24)
+    cafe24 = spot_label(cafe, 45_000, ["thin_margin", "rent", "slow_ramp"], 800_000, 24, 500, 700_000)
+    if pay24 > 45_000:
+        raise SystemExit(
+            f"аннуитет 800000 на 24 мес. равен {pay24}, это выше потока 45000. "
+            f"Метка decide {cafe24}. Ожидаемую 800000 не подменяю."
+        )
+    checks = [
+        (spot_label(cafe, 45_000, ["thin_margin", "rent", "slow_ramp"], 800_000, 12, 500, 700_000), 300_000, "кафе 12 мес."),
+        (cafe24, 800_000, "кафе 24 мес."),
+        (spot_label(SYNTH_PLAN, 1_000_000, it_risks, 350_000, 60, 999, 150_000), 300_000, "прогон 350000"),
+        (spot_label(SYNTH_PLAN, 160_000, it_risks, 2_000_000, 12, 500, 700_000), 800_000, "синтетика поток 160000"),
+        (spot_label(SYNTH_PLAN, 1_000_000, it_risks, 2_000_000, 12, 999, 150_000), 300_000, "синтетика поток 1000000"),
+        (spot_label(cafe, 160_000, it_risks, 2_000_000, 12, 500, 700_000), 800_000, "чужой план поток 160000"),
+        (spot_label(cafe, 1_000_000, it_risks, 2_000_000, 12, 999, 150_000), 300_000, "чужой план поток 1000000"),
+        (spot_label(IT_PLAN, 160_000, it_risks, 350_000, 12, 500, 100_000), 300_000, "IT запрос 350000"),
+        (spot_label(IT_PLAN, 160_000, it_risks, 2_000_000, 12, 280, 100_000), 2_000_000, "IT запрос 2000000"),
+        (spot_label(SYNTH_PLAN, -150_000, [], 300_000, 60, 999, 700_000), 0, "отрицательный поток"),
+        (spot_label(SYNTH_PLAN, 400_000, [], 800_000, 12, 999, None), 0, "свои не указаны"),
+    ]
+    failed = [f"{name}: метка {got}, ожидалось {expected}" for got, expected, name in checks if got != expected]
+    if failed:
+        raise SystemExit("точечные проверки:\n" + "\n".join(failed))
 
 
 def prepare() -> None:
@@ -355,26 +515,40 @@ def prepare() -> None:
         limit, reason = decide(row)
         labels.append({"id": row["id"], "limit_rub": limit, "reason": reason})
     by_id = {item["id"]: item for item in labels}
+    if len(by_id) != len(labels):
+        raise SystemExit("id меток пересекаются")
     check_policy(rows, by_id)
+    check_spots()
+    vector = featurize(rows[0])
+    if vector.shape != (30,):
+        raise SystemExit(f"входов {vector.shape[0]}, нужно 30")
+    if abs(float(vector[4]) - rows[0]["loan_term_months"] / 12.0) > 1e-6:
+        raise SystemExit("срок в сети не делится на 12")
+    print("--- демо, семь планов, рейтинг 500, свои 100000, срок 12 ---")
+    mismatches = []
+    for row in demo_rows(rows):
+        label = by_id[row["id"]]
+        plan = Path(row["encoder"]["plan_file"]).stem
+        expected = DEMO_LIMITS[plan][row["loan_amount_rub"]]
+        got = label["limit_rub"]
+        print(
+            plan,
+            row["loan_amount_rub"],
+            "поток",
+            row["encoder"]["inferred_monthly_flow_rub"],
+            "платёж",
+            row["monthly_payment_rub"],
+            "лимит",
+            got,
+        )
+        if got != expected:
+            mismatches.append(f"{plan} сумма {row['loan_amount_rub']}: метка {got}, таблица {expected}")
+    if mismatches:
+        raise SystemExit("демо не сошлось:\n" + "\n".join(mismatches))
     dump_jsonl(TASKS, rows)
     dump_jsonl(LABELS, labels)
     print(TASKS)
     print(LABELS)
-    print("--- демо, рейтинг 500, свои 100000 ---")
-    for row in rows:
-        if row["credit_rating"] == 500 and row["own_funds_rub"] == 100_000:
-            label = by_id[row["id"]]
-            plan = Path(row["encoder"]["plan_file"]).stem
-            print(
-                plan,
-                row["loan_amount_rub"],
-                "поток",
-                row["encoder"]["inferred_monthly_flow_rub"],
-                "платёж",
-                row["monthly_payment_rub"],
-                "лимит",
-                label["limit_rub"],
-            )
 
 
 class LimitMLP(nn.Module):
@@ -399,7 +573,7 @@ def featurize(row: dict) -> np.ndarray:
         float(row["credit_rating"]) / RATING_SCALE,
         0.0 if own is None else float(own) / MONEY_SCALE,
         float(row["loan_amount_rub"]) / MONEY_SCALE,
-        float(row["loan_term_months"]),
+        float(row["loan_term_months"]) / 12.0,
         float(bool(row["income_confirmed"])),
         float(bool(row["costs_confirmed"])),
         float(bool(row["capital_confirmed"])),
@@ -509,7 +683,7 @@ def feature_spec() -> list[dict]:
         {"index": 1, "name": "credit_rating", "transform": "делить на rating_scale"},
         {"index": 2, "name": "own_funds_rub", "transform": "null → 0, делить на money_scale_rub"},
         {"index": 3, "name": "loan_amount_rub", "transform": "делить на money_scale_rub"},
-        {"index": 4, "name": "loan_term_months", "transform": "как есть, в месяцах"},
+        {"index": 4, "name": "loan_term_months", "transform": "делить на 12"},
         {"index": 5, "name": "income_confirmed", "transform": "0/1"},
         {"index": 6, "name": "costs_confirmed", "transform": "0/1"},
         {"index": 7, "name": "capital_confirmed", "transform": "0/1"},
@@ -593,13 +767,13 @@ def train_initial() -> None:
     save_weights(model)
     labels = {item["id"]: item for item in load_jsonl(LABELS)}
     misses = []
-    print("--- отложенные ---")
+    print("--- отложенные, только расхождения ---")
     for index in hold_idx:
         row = rows[int(index)]
         scorer_limit = int(pred[int(index)])
         agent_limit = labels[row["id"]]["limit_rub"]
-        print(format_case(row, scorer_limit, agent_limit))
         if scorer_limit != agent_limit:
+            print(format_case(row, scorer_limit, agent_limit))
             misses.append(
                 {
                     "id": row["id"],
@@ -653,10 +827,15 @@ def finetune_once() -> None:
 
 
 def demo_rows(rows: list[dict]) -> list[dict]:
+    plans = {f"plans/long/{stem}.docx" for stem in DEMO_LIMITS}
     picked = [
         row
         for row in rows
-        if row["credit_rating"] == 500 and row["own_funds_rub"] == 100_000
+        if row["encoder"]["plan_file"] in plans
+        and row["credit_rating"] == 500
+        and row["own_funds_rub"] == 100_000
+        and row["loan_term_months"] == 12
+        and row["loan_amount_rub"] in AMOUNTS
     ]
     if len(picked) != 21:
         raise SystemExit(f"демо-заявок {len(picked)}, нужно 21")

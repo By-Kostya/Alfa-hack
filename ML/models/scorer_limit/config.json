@@ -40,7 +40,7 @@
     {
       "index": 4,
       "name": "loan_term_months",
-      "transform": "как есть, в месяцах"
+      "transform": "делить на 12"
     },
     {
       "index": 5,
@@ -173,12 +173,9 @@
   "holdout_fraction": 0.2,
   "weights_file": "weights.pt",
   "torch": "2.14.1",
-  "stage": "finetuned",
-  "holdout_size": 63,
-  "holdout_accuracy_before_finetune": 0.9683,
+  "stage": "initial",
+  "holdout_size": 6739,
+  "holdout_accuracy_before_finetune": 0.9999,
   "train_accuracy_before_finetune": 1.0,
-  "misses_before_finetune": 2,
-  "finetune_passes": 1,
-  "demo_size": 21,
-  "misses_after_finetune": 0
+  "misses_before_finetune": 1
 }
