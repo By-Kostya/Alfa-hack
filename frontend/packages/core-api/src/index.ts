@@ -28,10 +28,29 @@ export type CompanyProfile = {
 
 export type AuthSession = {
   token: string;
-  user: {
-    id: string;
-    phone: string;
-  };
+  user: UserProfile;
+};
+
+export type SmsSendResponse = {
+  status: string;
+  code: string;
+  message: string;
+};
+
+export type Product = {
+  code: string;
+  title: string;
+  description: string;
+  badge: string;
+  rate_pct: number;
+  min_amount_rub: number;
+  max_amount_rub: number;
+  min_term_months: number;
+  max_term_months: number;
+};
+
+export type ProductDetail = Product & {
+  fields: string[];
 };
 
 export type ApplicationCard = {
@@ -81,17 +100,20 @@ export class ApiError extends Error {
   }
 }
 
-const MOCK_SMS_CODE = '0000';
-const pendingMockSms = new Set<string>();
-
 function readApiError(payload: unknown, fallback: string): string {
   if (typeof payload === 'object' && payload !== null) {
     if ('error' in payload) {
       const error = (payload as ApiErrorBody).error;
       if (typeof error === 'string' && error.trim()) return error;
     }
-    if ('detail' in payload && typeof payload.detail === 'string' && payload.detail.trim()) {
-      return payload.detail;
+    if ('detail' in payload) {
+      if (typeof payload.detail === 'string' && payload.detail.trim()) return payload.detail;
+      if (Array.isArray(payload.detail)) {
+        const firstError = payload.detail.find((item) => (
+          typeof item === 'object' && item !== null && 'msg' in item && typeof item.msg === 'string'
+        ));
+        if (firstError && 'msg' in firstError) return firstError.msg as string;
+      }
     }
   }
   return fallback;
@@ -134,7 +156,7 @@ export function createApiClient(
       const fallback = response.status === 401
         ? 'Сессия завершилась. Войдите ещё раз.'
         : response.status === 422
-          ? 'Проверьте номер телефона.'
+          ? 'Проверьте введённые данные.'
           : response.status >= 500
             ? 'Сервис временно недоступен. Попробуйте позже.'
             : 'Не удалось выполнить запрос.';
@@ -145,20 +167,17 @@ export function createApiClient(
   }
 
   return {
-    requestMockSmsCode(phone: string) {
-      pendingMockSms.add(phone);
-    },
-    verifyMockSmsCode(phone: string, code: string) {
-      return pendingMockSms.has(phone) && code === MOCK_SMS_CODE;
-    },
-    createSession(phone: string) {
-      return request<AuthSession>('/auth/session', {
+    sendSmsCode(phone: string) {
+      return request<SmsSendResponse>('/auth/sms/send', {
         method: 'POST',
         body: { phone },
       });
     },
-    getCabinet(token: string) {
-      return request<Cabinet>('/cabinet', { token });
+    createSession(phone: string, code: string) {
+      return request<AuthSession>('/auth/session', {
+        method: 'POST',
+        body: { phone, code },
+      });
     },
     deleteSession(token: string) {
       return request<void>('/auth/session', { method: 'DELETE', token });
