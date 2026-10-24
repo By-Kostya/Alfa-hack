@@ -157,12 +157,17 @@ function App() {
 
   useEffect(() => {
     const token = sessionStorage.getItem(TOKEN_KEY);
+    const initialRoute = normalizeRoute(window.location.pathname);
     if (!token) return;
 
-    api.getCabinet(token)
+    api.getDashboardData(token)
       .then((nextCabinet) => {
         setCabinet(nextCabinet);
-        setCabinetScreen('welcome');
+        if (initialRoute === ROUTES.dashboard || initialRoute === ROUTES.productChoice) {
+          setRoute(initialRoute);
+        } else {
+          navigateTo(ROUTES.welcome, true);
+        }
       })
       .catch((requestError: unknown) => {
         if (requestError instanceof ApiError && requestError.status === 401) {
@@ -174,10 +179,79 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (cabinetScreen !== 'welcome') return;
-    const timer = window.setTimeout(() => setCabinetScreen('dashboard'), WELCOME_DURATION_MS);
+    if (isRestoring) return;
+    const token = sessionStorage.getItem(TOKEN_KEY);
+    if (route === ROUTES.code) {
+      if (!sessionStorage.getItem(PENDING_PHONE_KEY)) navigateTo(ROUTES.login, true);
+      return;
+    }
+    if ((route === ROUTES.welcome || route === ROUTES.dashboard || route === ROUTES.productChoice) && (!token || !cabinet)) {
+      navigateTo(ROUTES.login, true);
+    }
+  }, [route, cabinet, isRestoring]);
+
+  useEffect(() => {
+    const titles: Record<AppRoute, string> = {
+      [ROUTES.login]: 'Вход — Альфа-Бизнес',
+      [ROUTES.code]: 'Подтверждение номера — Альфа-Бизнес',
+      [ROUTES.welcome]: 'Добро пожаловать — Альфа-Бизнес',
+      [ROUTES.dashboard]: 'Личный кабинет — Альфа-Бизнес',
+      [ROUTES.productChoice]: 'Подбор кредита — Альфа-Бизнес',
+    };
+    document.title = titles[route];
+  }, [route]);
+
+  useEffect(() => {
+    const viewport = productCarouselRef.current;
+    if (!viewport || route !== ROUTES.dashboard) return;
+
+    const updateSlideWidth = () => {
+      const availablePeek = Math.max(0, (viewport.clientWidth - 220) / 2);
+      const peek = cabinet && cabinet.products.length > 1
+        ? Math.min(104, Math.max(24, viewport.clientWidth * 0.14), availablePeek)
+        : 0;
+      viewport.style.setProperty('--carousel-peek', `${peek}px`);
+      viewport.style.setProperty('--carousel-slide-width', `${Math.max(220, viewport.clientWidth - peek * 2)}px`);
+      syncActiveProductFromScroll();
+    };
+    const observer = new ResizeObserver(updateSlideWidth);
+    observer.observe(viewport);
+    updateSlideWidth();
+    return () => observer.disconnect();
+  }, [route, cabinet?.products.length]);
+
+  useEffect(() => {
+    const token = sessionStorage.getItem(TOKEN_KEY);
+    if (!token || route !== ROUTES.welcome) return;
+    const timer = window.setTimeout(() => navigateTo(ROUTES.dashboard, true), WELCOME_DURATION_MS);
     return () => window.clearTimeout(timer);
-  }, [cabinetScreen]);
+  }, [route]);
+
+  useEffect(() => {
+    if (!selectedProduct) {
+      setSelectedProductDetail(null);
+      setProductDetailError('');
+      setIsLoadingProductDetail(false);
+      return;
+    }
+
+    let isCurrentRequest = true;
+    setSelectedProductDetail(null);
+    setProductDetailError('');
+    setIsLoadingProductDetail(true);
+    api.getProductDetail(selectedProduct)
+      .then((detail) => {
+        if (isCurrentRequest) setSelectedProductDetail(detail);
+      })
+      .catch((requestError: unknown) => {
+        if (isCurrentRequest) setProductDetailError(getErrorMessage(requestError));
+      })
+      .finally(() => {
+        if (isCurrentRequest) setIsLoadingProductDetail(false);
+      });
+
+    return () => { isCurrentRequest = false; };
+  }, [selectedProduct]);
 
   function handlePhoneChange(value: string) {
     setPhone(formatRussianPhone(value));
