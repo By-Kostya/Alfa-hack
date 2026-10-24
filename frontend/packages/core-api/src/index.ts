@@ -87,21 +87,21 @@ export type ApplicationDetail = ApplicationCard & {
 
 export type CreditCard = {
   id: string;
+  application_id: string;
   product: string;
   status: string;
   amount_rub: number;
   loan_term_months: number;
   monthly_payment_rub: number;
-  purpose: string;
+  purpose?: string | null;
   created_at: string;
 };
 
-export type Cabinet = {
-  user: {
-    id: string;
-    phone: string;
-  };
-  products: Array<{
+export type CreditDetail = CreditCard & {
+  schedule: Array<{
+    month: number;
+    payment_rub: number;
+  }>;
 };
 
 export type ApplicationCreateRequest = {
