@@ -1,0 +1,444 @@
+[
+  {
+    "file": "plans/01_деловая_записка.docx",
+    "kind": "plan",
+    "style_id": "01",
+    "revenue_monthly_rub": 400000,
+    "costs_monthly_rub": 220000,
+    "own_funds_rub": 100000,
+    "months_to_first_cashflow": 2,
+    "use_of_funds": "оборудование",
+    "context_specific": true,
+    "has_contract": null,
+    "quotes": {
+      "revenue_monthly_rub": "Месячная выручка составляет 400 000 руб. в месяц.",
+      "costs_monthly_rub": "Ежемесячные расходы равны 0,55 от выручки, то есть 220 000 руб. в месяц.",
+      "own_funds_rub": "Собственные средства составляют 100 000 руб.",
+      "months_to_first_cashflow": "До первых денежных поступлений осталось 2 месяца.",
+      "use_of_funds": "Деньги нужны на оборудование.",
+      "context_specific": "Мастерская «Резец и лак» делает простую деревянную мебель и продаёт её гостиницам «Светлая пристань»: заработок складывается из счетов за партии стульев и столов для этих гостиниц."
+    }
+  },
+  {
+    "file": "plans/02_монолог.docx",
+    "kind": "plan",
+    "style_id": "02",
+    "revenue_monthly_rub": 80000,
+    "costs_monthly_rub": 72000,
+    "own_funds_rub": null,
+    "months_to_first_cashflow": 0,
+    "use_of_funds": "оборотные средства",
+    "context_specific": true,
+    "has_contract": null,
+    "quotes": {
+      "revenue_monthly_rub": "Месячная выручка составляет 80 000 руб. в месяц",
+      "costs_monthly_rub": "расходы забирают 0,90 от выручки, это 72 000 руб. в месяц",
+      "months_to_first_cashflow": "Поступления уже есть, до них 0 месяцев.",
+      "use_of_funds": "Деньги нужны на оборотные средства",
+      "context_specific": "Мы в кофейне «Пенка и корица» варим напитки и печём булочки для сотрудников бюро «Тихий чертёж», заработок идёт со счетов за их ежедневные завтраки."
+    }
+  },
+  {
+    "file": "plans/03_обрывки.docx",
+    "kind": "plan",
+    "style_id": "03",
+    "revenue_monthly_rub": 1500000,
+    "costs_monthly_rub": null,
+    "own_funds_rub": 700000,
+    "months_to_first_cashflow": 6,
+    "use_of_funds": "запуск",
+    "context_specific": false,
+    "has_contract": null,
+    "quotes": {
+      "revenue_monthly_rub": "выручка 1 500 000 руб. в месяц",
+      "own_funds_rub": "свои деньги 700 000 руб.",
+      "months_to_first_cashflow": "до потока 6 месяцев",
+      "use_of_funds": "деньги на запуск",
+      "context_specific": "городское дело, обычный формат"
+    }
+  },
+  {
+    "file": "plans/04_письмо_партнёру.docx",
+    "kind": "plan",
+    "style_id": "04",
+    "revenue_monthly_rub": null,
+    "costs_monthly_rub": null,
+    "own_funds_rub": 100000,
+    "months_to_first_cashflow": 10,
+    "use_of_funds": "оборудование",
+    "context_specific": true,
+    "has_contract": null,
+    "quotes": {
+      "own_funds_rub": "Свои деньги, которые могу вложить, — 100 000 руб.",
+      "months_to_first_cashflow": "До первых поступлений по новому маршруту 10 месяцев.",
+      "use_of_funds": "Деньги нужны на оборудование.",
+      "context_specific": "Цех «Серый фургон» возит узлы для сборки компании «Ковш и перец», заработок берём с оплаты этих рейсов."
+    }
+  },
+  {
+    "file": "plans/05_показатели.docx",
+    "kind": "plan",
+    "style_id": "05",
+    "revenue_monthly_rub": 400000,
+    "costs_monthly_rub": 500000,
+    "own_funds_rub": null,
+    "months_to_first_cashflow": null,
+    "use_of_funds": "оборотные средства",
+    "context_specific": false,
+    "has_contract": null,
+    "quotes": {
+      "revenue_monthly_rub": "Выручка — 400 000 руб. в месяц",
+      "costs_monthly_rub": "Расходы — 1,25 от выручки, 500 000 руб. в месяц",
+      "use_of_funds": "Назначение — оборотные средства",
+      "context_specific": "Описание — обычная городская деятельность в целом"
+    }
+  },
+  {
+    "file": "plans/06_рассказ.docx",
+    "kind": "plan",
+    "style_id": "06",
+    "revenue_monthly_rub": 1500000,
+    "costs_monthly_rub": 825000,
+    "own_funds_rub": 700000,
+    "months_to_first_cashflow": 6,
+    "use_of_funds": null,
+    "context_specific": true,
+    "has_contract": null,
+    "quotes": {
+      "revenue_monthly_rub": "Месячная выручка составляет 1 500 000 руб. в месяц.",
+      "costs_monthly_rub": "Расходы составляют 0,55 от выручки, то есть 825 000 руб. в месяц.",
+      "own_funds_rub": "Собственные средства составляют 700 000 руб.",
+      "months_to_first_cashflow": "До первых денежных поступлений в новом сезоне 6 месяцев.",
+      "context_specific": "Мёд и вощину у него забирает пекарня «Булка до полудня», а заработок складывается из оплаты этих партий: пекарня печёт пряники и платит по счёту после каждой сдачи."
+    }
+  },
+  {
+    "file": "plans/07_канцелярит.docx",
+    "kind": "plan",
+    "style_id": "07",
+    "revenue_monthly_rub": 80000,
+    "costs_monthly_rub": 72000,
+    "own_funds_rub": 100000,
+    "months_to_first_cashflow": null,
+    "use_of_funds": "запуск",
+    "context_specific": false,
+    "has_contract": null,
+    "quotes": {
+      "revenue_monthly_rub": "1. Ежемесячная выручка составляет 80 000 руб.",
+      "costs_monthly_rub": "2. Расходы исчислены как 0,90 от выручки и составляют 72 000 руб. в месяц.",
+      "own_funds_rub": "3. Собственные средства отражены в сумме 100 000 руб.",
+      "use_of_funds": "4. Назначение средств определено так: запуск.",
+      "context_specific": "Настоящая справка составлена по обычной городской деятельности, описанной в целом."
+    }
+  },
+  {
+    "file": "plans/08_короткий.docx",
+    "kind": "plan",
+    "style_id": "08",
+    "revenue_monthly_rub": 400000,
+    "costs_monthly_rub": null,
+    "own_funds_rub": null,
+    "months_to_first_cashflow": 0,
+    "use_of_funds": "оборудование",
+    "context_specific": true,
+    "has_contract": null,
+    "quotes": {
+      "revenue_monthly_rub": "Выручка 400 000 руб. в месяц.",
+      "months_to_first_cashflow": "До первых поступлений 0 месяцев.",
+      "use_of_funds": "Деньги нужны на оборудование.",
+      "context_specific": "Мастерская «Ключ у порога» чинит технику жильцам дома «Кедровый» и зарабатывает на этих выездах."
+    }
+  },
+  {
+    "file": "plans/09_пропись_и_цифры.docx",
+    "kind": "plan",
+    "style_id": "09",
+    "revenue_monthly_rub": 1500000,
+    "costs_monthly_rub": 1875000,
+    "own_funds_rub": 700000,
+    "months_to_first_cashflow": 10,
+    "use_of_funds": "оборотные средства",
+    "context_specific": true,
+    "has_contract": null,
+    "quotes": {
+      "revenue_monthly_rub": "Месячная выручка составляет один миллион пятьсот тысяч руб. в месяц.",
+      "costs_monthly_rub": "Расходы равны 1,25 от выручки, это 1 875 000 руб. в месяц.",
+      "own_funds_rub": "Собственные средства составляют семьсот тысяч руб.",
+      "months_to_first_cashflow": "До первого денежного потока 10 месяцев.",
+      "use_of_funds": "Деньги нужны на оборотные средства.",
+      "context_specific": "Служба «Мятный ковёр» убирает офисы бюро «Ровный край» и зарабатывает на ежемесячных счетах за эту уборку."
+    }
+  },
+  {
+    "file": "plans/10_разговорный.docx",
+    "kind": "plan",
+    "style_id": "10",
+    "revenue_monthly_rub": null,
+    "costs_monthly_rub": null,
+    "own_funds_rub": null,
+    "months_to_first_cashflow": 2,
+    "use_of_funds": "запуск",
+    "context_specific": false,
+    "has_contract": null,
+    "quotes": {
+      "months_to_first_cashflow": "До первых денег ещё 2 месяца.",
+      "use_of_funds": "На запуск денги и нужнны, остально сам допишу када время будет.",
+      "context_specific": "Короче, дело у нас городское и обычное вобще, я так это вижу."
+    }
+  },
+  {
+    "file": "plans/11_обратный_порядок.docx",
+    "kind": "plan",
+    "style_id": "11",
+    "revenue_monthly_rub": 80000,
+    "costs_monthly_rub": 44000,
+    "own_funds_rub": 100000,
+    "months_to_first_cashflow": null,
+    "use_of_funds": "оборотные средства",
+    "context_specific": true,
+    "has_contract": null,
+    "quotes": {
+      "revenue_monthly_rub": "Месячная выручка составляет 80 000 руб. в месяц.",
+      "costs_monthly_rub": "Расходы составляют 0,55 от выручки, то есть 44 000 руб. в месяц.",
+      "own_funds_rub": "Собственные средства составляют 100 000 руб.",
+      "use_of_funds": "Кредит нужен на оборотные средства.",
+      "context_specific": "Возим фурнитуру цеху «Доска и клей»: забираем её со склада и зарабатываем на плате за эти рейсы."
+    }
+  },
+  {
+    "file": "plans/12_строки.docx",
+    "kind": "plan",
+    "style_id": "12",
+    "revenue_monthly_rub": 400000,
+    "costs_monthly_rub": 360000,
+    "own_funds_rub": null,
+    "months_to_first_cashflow": 6,
+    "use_of_funds": null,
+    "context_specific": null,
+    "has_contract": null,
+    "quotes": {
+      "revenue_monthly_rub": "выручка | 400000",
+      "costs_monthly_rub": "расходы | 360000",
+      "months_to_first_cashflow": "месяцы до потока | 6"
+    }
+  },
+  {
+    "file": "contracts/01_поставка.docx",
+    "kind": "contract",
+    "style_id": "01",
+    "revenue_monthly_rub": null,
+    "costs_monthly_rub": null,
+    "own_funds_rub": null,
+    "months_to_first_cashflow": null,
+    "use_of_funds": null,
+    "context_specific": null,
+    "has_contract": true,
+    "quotes": {
+      "has_contract": "ООО «Синий ящик», именуемое Поставщик, и ООО «Свёрток и шпагат», именуемое Покупатель, заключили договор поставки."
+    }
+  },
+  {
+    "file": "contracts/02_услуги.docx",
+    "kind": "contract",
+    "style_id": "02",
+    "revenue_monthly_rub": null,
+    "costs_monthly_rub": null,
+    "own_funds_rub": null,
+    "months_to_first_cashflow": null,
+    "use_of_funds": null,
+    "context_specific": null,
+    "has_contract": true,
+    "quotes": {
+      "has_contract": "Настоящий договор оказания услуг заключён между ООО «Мятный ковёр» и ООО «Тихий борт»."
+    }
+  },
+  {
+    "file": "contracts/03_аренда.docx",
+    "kind": "contract",
+    "style_id": "03",
+    "revenue_monthly_rub": null,
+    "costs_monthly_rub": null,
+    "own_funds_rub": null,
+    "months_to_first_cashflow": null,
+    "use_of_funds": null,
+    "context_specific": null,
+    "has_contract": true,
+    "quotes": {
+      "has_contract": "ООО «Прожектор в чехле» арендует у ООО «Лампа на вечер» нежилое помещение по адресу: г. Ладогорье, пер. Кедровый, д. 7."
+    }
+  },
+  {
+    "file": "contracts/04_предварительный_заказ.docx",
+    "kind": "contract",
+    "style_id": "04",
+    "revenue_monthly_rub": null,
+    "costs_monthly_rub": null,
+    "own_funds_rub": null,
+    "months_to_first_cashflow": null,
+    "use_of_funds": null,
+    "context_specific": null,
+    "has_contract": true,
+    "quotes": {
+      "has_contract": "ООО «Ковш и перец» направляет ООО «Стеклянный край» предварительный заказ на стеклянные бутылки для соусов."
+    }
+  },
+  {
+    "file": "contracts/05_рамочный.docx",
+    "kind": "contract",
+    "style_id": "05",
+    "revenue_monthly_rub": null,
+    "costs_monthly_rub": null,
+    "own_funds_rub": null,
+    "months_to_first_cashflow": null,
+    "use_of_funds": null,
+    "context_specific": null,
+    "has_contract": false,
+    "quotes": {
+      "has_contract": "Цена перевозок в настоящем документе твёрдой суммой не закрепляется и будет указана в отдельных заявках."
+    }
+  },
+  {
+    "file": "contracts/06_обрывок.docx",
+    "kind": "contract",
+    "style_id": "06",
+    "revenue_monthly_rub": null,
+    "costs_monthly_rub": null,
+    "own_funds_rub": null,
+    "months_to_first_cashflow": null,
+    "use_of_funds": null,
+    "context_specific": null,
+    "has_contract": false,
+    "quotes": {
+      "has_contract": "Ответственный со стороны получателя отмечает в журнале фамилию водителя и время въезда, без каких-либо денежных пометок."
+    }
+  },
+  {
+    "file": "contracts/07_письмо.docx",
+    "kind": "contract",
+    "style_id": "07",
+    "revenue_monthly_rub": null,
+    "costs_monthly_rub": null,
+    "own_funds_rub": null,
+    "months_to_first_cashflow": null,
+    "use_of_funds": null,
+    "context_specific": null,
+    "has_contract": false,
+    "quotes": {
+      "has_contract": "Хочу сказать прямо: давайте работать."
+    }
+  },
+  {
+    "file": "contracts/08_бланк.docx",
+    "kind": "contract",
+    "style_id": "08",
+    "revenue_monthly_rub": null,
+    "costs_monthly_rub": null,
+    "own_funds_rub": null,
+    "months_to_first_cashflow": null,
+    "use_of_funds": null,
+    "context_specific": null,
+    "has_contract": false,
+    "quotes": {
+      "has_contract": "Форма не заполнена."
+    }
+  },
+  {
+    "file": "plans/long/01_кафе.docx",
+    "kind": "plan",
+    "business": "кафе у дома",
+    "inferred_monthly_flow_rub": 45000,
+    "flow_formula": "400 * 50 * 25 - 120000 - 170000 - 140000 - 25000",
+    "risks": [
+      "thin_margin",
+      "rent",
+      "slow_ramp"
+    ],
+    "quote": "В рабочем режиме средний чек 400 руб., за день кафе принимает 50 гостей и работает 25 дней в месяц, поэтому месячная выручка составляет 500000 руб. Аренда помещения 120000 руб., оплата двух поваров 170000 руб., продукты 140000 руб., коммунальные платежи и хозяйственные мелочи 25000 руб., расходы равны 455000 руб. в месяц. После выхода на режим остаётся 45000 руб. в месяц.",
+    "sustainable_loan_rub": 300000
+  },
+  {
+    "file": "plans/long/02_it_разработка.docx",
+    "kind": "plan",
+    "business": "заказная разработка",
+    "inferred_monthly_flow_rub": 160000,
+    "flow_formula": "(4200000 + 1800000) / 12 - 270000 - 30000 - 40000",
+    "risks": [
+      "client_concentration",
+      "lumpy_revenue"
+    ],
+    "quote": "Договор с ООО «Ковш и перец» даёт 4200000 руб. за год, договор с ООО «Светлая пристань» даёт 1800000 руб. за год. Средняя месячная выручка составляет 500000 руб., год в этом счёте делится на 12. Фонд оплаты уже нанятой команды 270000 руб. в месяц, офис 30000 руб., налоги и сервисы 40000 руб., расходы равны 340000 руб. в месяц. Средний поток равен 160000 руб. в месяц.",
+    "sustainable_loan_rub": 800000
+  },
+  {
+    "file": "plans/long/03_автомойка.docx",
+    "kind": "plan",
+    "business": "автомойка",
+    "inferred_monthly_flow_rub": 127000,
+    "flow_formula": "((36 * 30 * 500) + (12 * 30 * 500)) / 2 - 70000 - 120000 - 15000 - (40000 + 16000) / 2",
+    "risks": [
+      "seasonality",
+      "fixed_costs",
+      "location"
+    ],
+    "quote": "Летом мойка принимает 36 машин в день на оба бокса вместе, зимой 12 машин в день, цена одной мойки 500 руб., в месяце 30 рабочих дней. Средняя месячная выручка составляет 360000 руб.: летние и зимние поступления складываются и делятся на 2. Аренда земли 70000 руб., оплата людей 120000 руб. и плата за электричество и воду 15000 руб. не меняются от сезона. Химия летом 40000 руб. в месяц, зимой 16000 руб., средняя химия тоже делится на 2. Средние месячные расходы составляют 233000 руб. Средний поток за год равен 127000 руб. в месяц.",
+    "sustainable_loan_rub": 800000
+  },
+  {
+    "file": "plans/long/04_доставка.docx",
+    "kind": "plan",
+    "business": "доставка еды",
+    "inferred_monthly_flow_rub": -140000,
+    "flow_formula": "2400 * 150 - 2400 * 110 - 2400 * 55 - 2400 * 15 - 68000",
+    "risks": [
+      "negative_unit_economics",
+      "subsidies",
+      "competition"
+    ],
+    "quote": "Месячная выручка составляет 360000 руб.: это 2400 заказов и комиссия 150 руб. с заказа. Расходы равны 500000 руб. в месяц. Они складываются из доплаты курьеру 110 руб., скидки ресторану 55 руб. и эквайринга 15 руб. на каждый заказ из тех же 2400, плюс содержание поддержки и серверов 68000 руб. Поток равен -140000 руб. в месяц.",
+    "sustainable_loan_rub": 300000
+  },
+  {
+    "file": "plans/long/05_найди_собаку.docx",
+    "kind": "plan",
+    "business": "поиск потерянных собак",
+    "inferred_monthly_flow_rub": -16300,
+    "flow_formula": "8 * 400 + 5 * 300 - 3000 - 18000",
+    "risks": [
+      "rare_payment",
+      "unclear_payer",
+      "small_market"
+    ],
+    "quote": "В месяц приходит 50 объявлений, платят 8 хозяев по 400 руб. за поднятие карточки и ещё 5 человек оставляют комиссию 300 руб. с вознаграждения нашедшему. Месячная выручка составляет 4700 руб. Сервер и карты обходятся в 3000 руб., поддержка на неполной ставке в 18000 руб., расходы равны 21000 руб. в месяц. Поток равен -16300 руб. в месяц.",
+    "sustainable_loan_rub": 300000
+  },
+  {
+    "file": "plans/long/06_барахолка.docx",
+    "kind": "plan",
+    "business": "барахолка",
+    "inferred_monthly_flow_rub": -135000,
+    "flow_formula": "300 * 2000 * 5 / 100 * 6 / 12 - 110000 - 25000 - 15000",
+    "risks": [
+      "cold_start",
+      "competition",
+      "fraud",
+      "late_monetization"
+    ],
+    "quote": "Комиссия берётся только 6 месяцев из 12. В такой месяц проходит 300 сделок по средней цене 2000 руб., ставка комиссии 5 из 100. Средняя месячная выручка в первый год составляет 15000 руб. Два сотрудника обходятся в 110000 руб. в месяц, сервер и офис в 25000 руб., резерв на споры по сделкам в 15000 руб. Средние месячные расходы составляют 150000 руб. Поток первого года равен -135000 руб. в месяц.",
+    "sustainable_loan_rub": 300000
+  },
+  {
+    "file": "plans/long/07_одежда_китай.docx",
+    "kind": "plan",
+    "business": "одежда из Китая",
+    "inferred_monthly_flow_rub": 133000,
+    "flow_formula": "(560 * 2500 + 80 * 1000 - 800 * 500 - 100000 - 100000 - (560 * 2500 + 80 * 1000) / 10 - 20000 - 45000 * 4) / 4",
+    "risks": [
+      "inventory",
+      "customs",
+      "returns",
+      "fx"
+    ],
+    "quote": "Партия из 800 изделий оборачивается за 4 месяца. По полной цене продаются 560 изделий по 2500 руб., после уценки продаются 80 изделий по 1000 руб. Закупка стоит 500 руб. за изделие, доставка партии 100000 руб., таможня 100000 руб. Площадка удерживает десятую часть и делит выручку на 10. Обработка возвратов стоит 20000 руб. за партию, аренда и продавец стоят 45000 руб. в месяц на протяжении этих 4 месяцев. В пересчёте на месяц выручка составляет 370000 руб., расходы составляют 237000 руб., поток равен 133000 руб. в месяц.",
+    "sustainable_loan_rub": 800000
+  }
+]

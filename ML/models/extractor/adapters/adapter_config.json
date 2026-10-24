@@ -1,0 +1,42 @@
+{
+    "adapter_path": "/Users/nixbi/Documents/Alfa-\u0445\u0430\u043a\u0430\u0442\u043e\u043d/models/extractor/adapters",
+    "batch_size": 1,
+    "clear_cache_threshold": 0,
+    "config": null,
+    "data": "/Users/nixbi/Documents/Alfa-\u0445\u0430\u043a\u0430\u0442\u043e\u043d/models/extractor/data",
+    "fine_tune_type": "lora",
+    "grad_accumulation_steps": 1,
+    "grad_checkpoint": true,
+    "iters": 200,
+    "learning_rate": 0.0001,
+    "lora_parameters": {
+        "rank": 8,
+        "dropout": 0.0,
+        "scale": 20.0
+    },
+    "lr_schedule": null,
+    "mask_prompt": true,
+    "max_seq_length": 8192,
+    "model": "/Users/nixbi/Documents/Alfa-\u0445\u0430\u043a\u0430\u0442\u043e\u043d/models/extractor/base",
+    "num_layers": 8,
+    "optimizer": "adam",
+    "optimizer_config": {
+        "adam": {},
+        "adamw": {},
+        "muon": {},
+        "sgd": {},
+        "adafactor": {}
+    },
+    "project_name": null,
+    "report_to": null,
+    "resume_adapter_file": "/Users/nixbi/Documents/Alfa-\u0445\u0430\u043a\u0430\u0442\u043e\u043d/tmp/vector_adapters.safetensors",
+    "save_every": 200,
+    "seed": 23,
+    "steps_per_eval": 160,
+    "steps_per_report": 20,
+    "test": false,
+    "test_batches": 500,
+    "train": true,
+    "trust_remote_code": false,
+    "val_batches": -1
+}

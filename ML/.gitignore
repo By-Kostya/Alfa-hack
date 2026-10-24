@@ -1,0 +1,14 @@
+.DS_Store
+__pycache__/
+*.pyc
+
+# База Qwen2.5-1.5B, файл больше лимита GitHub. Скачивается отдельно в models/extractor/base.
+models/extractor/base/model.safetensors
+models/extractor/base/.cache/
+
+# Локальные окружения и чужие модели
+tmp/docx-venv/
+tmp/whisper-large-v3-turbo/
+tmp/whisper-download.log
+tmp/*.mp4
+tmp/*.wav
