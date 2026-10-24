@@ -1,0 +1,39 @@
+---
+description: MatchWear frontend — TypeScript domain core + thin UI; mocks stay in core-api
+alwaysApply: true
+---
+
+# TS core + UI (standing rule)
+
+```text
+Backend / mocks (@matchwear/core-api)
+    ▲
+@matchwear/core-*     ← domain TypeScript, NO React, NO CSS
+    ▲
+apps/* + @matchwear/ui-web   ← React wiring / visuals only
+```
+
+## Always
+
+- New domain logic → `@matchwear/core-*` in **TypeScript** (`.ts`), never JSX/CSS/React
+- Shells (`apps/buyer-web`, future Expo) inject ports and render; keep pages thin
+- Ask first: *домен или пиксели?* Domain → core even if only one shell exists today
+- Controllers / helpers: `createXController`, pure fns — reusable by web / TG / RN
+
+## Mocks live in core-api
+
+- Mock fixtures + in-memory store stay in `@matchwear/core-api` (e.g. `sharedProductStore`)
+- Do **not** move mocks into `apps/*` or invent parallel fake data in pages
+- When real API lands: swap/implement ports in `core-api` — shells keep the same `core-*` + UI contracts
+- Prefer mocks calling domain helpers (`itemDisplayPrice`, etc.) instead of reimplementing formulas
+
+## Don't
+
+- Put filters, totals, stock, status rules, gesture thresholds in `*Page.jsx`
+- Import React into `packages/js/core-*`
+- Put domain controllers in `@matchwear/ui-web`
+- Add ad-hoc mock arrays next to screens when `core-api` already has the port
+
+See `docs/FRONTEND_ARCHITECTURE.md`.
+
+**Docs:** new/changed `@matchwear/core-*` public API → update that package `README.md` (and architecture table if a new package) in the same change (rule: `.cursor/rules/docs-with-code.mdc`).

@@ -1,0 +1,38 @@
+---
+description: Committed MatchWear plans for agents on any machine
+alwaysApply: true
+---
+
+# Agent plans (standing rule)
+
+Plans and rules are in the repo so an agent on another device has the same context. Do not rely on the local Cursor profile (`~/.cursor/plans`).
+
+- Rules: `.cursor/rules/*.mdc` (always applied)
+- Plans: `.cursor/plans/*.plan.md`
+
+When the task matches a plan below, read that file before editing. A plan records intent and constraints; it is not a new order to re-implement work that is already in the tree. If code and a plan disagree, follow the code and the other standing rules, and update the plan only when the user asks to change the plan.
+
+| File | Topic |
+|---|---|
+| `mf_brick_overview_d7e2a401.plan.md` | Monorepo bricks: buyer features → seller features → Python libs |
+| `buyer_feature_packages_d7e2a401.plan.md` | `@matchwear/feature-*` for buyer-web |
+| `seller_feature_packages_d7e2a401.plan.md` | `@matchwear/feature-seller-*` for seller-web |
+| `backend_lib_extract_d7e2a401.plan.md` | Extract reusable Python from identity/finance into `packages/py` |
+| `mw2_frontend_core_dbe546ed.plan.md` | MW 2.0 API-first frontend core |
+| `marketplace_service_architecture_9b61d8c6.plan.md` | Greenfield services, T-Bank Safe Deal |
+| `extract_reusable_engines_217c9256.plan.md` | Engines in `packages/` |
+| `core_catalog_boundary_3377af54.plan.md` | Catalog filters/pagination in `@matchwear/core-catalog` |
+| `catalog_item_cart_0142bb66.plan.md` | Catalog → item → cart → checkout |
+| `seller_lk_frontend_c50632b1.plan.md` | Seller LK shell |
+| `seller_landing_jwt_split_23f1baf8.plan.md` | Landing `/`, cabinet `/app/*`, client JWT |
+| `seller_ozon-like_layout_e0babd73.plan.md` | Seller LK layout |
+| `seller_kyc_onboarding_ca8505f0.plan.md` | Seller KYC and payout envelope |
+| `identity_auth_gaps_6dffa596.plan.md` | Identity auth remaining gaps |
+| `docs_for_existing_api_68dbd722.plan.md` | Docs caught up to existing API |
+| `fill_missing_docs_e7c4a901.plan.md` | Fill missing or wrong docs |
+| `refactor_arch_gaps_b2d8f014.plan.md` | Architecture gaps in live services |
+| `fix_core_readme_contract_gaps_a8f3c201.plan.md` | core README vs contract tests |
+| `blind_contract_tests_c3e91a07.plan.md` | Contract tests from docs only |
+| `rerun_contract_after_readme_fix_b1e4d902.plan.md` | Re-run contract tests after README fix |
+| `playwright_frontend_e2e_d4f02b18.plan.md` | Playwright E2E for buyer-web and seller-web |
+| `owner_waiver_dev_gate_63dd422a.plan.md` | Owner payment waiver tied to dev auth skip |

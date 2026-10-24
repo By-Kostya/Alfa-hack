@@ -1,0 +1,39 @@
+---
+description: Frontend UI copy — Russian for RU users; no explanatory prose in the UI
+globs: apps/**/*.{jsx,tsx,js,ts,css},packages/js/ui-web/**/*.{jsx,tsx,js,css}
+alwaysApply: false
+---
+
+# Frontend UI language & copy (RU)
+
+MatchWear shells are for **Russian** users. Apply when editing buyer-web, seller-web, `ui-web`, or any user-facing strings.
+
+## 1. Russian in the UI
+
+- Labels, buttons, titles, errors, empty states, placeholders → **Russian**.
+- English only if the word is already universal for users (e.g. **Username**, **Telegram**, **VK**, brand names). Prefer RU otherwise (`Адрес витрины`, not `Slug`).
+- API field names (`shop_slug`, `tid_token`) stay English in code; never surface them raw in labels.
+
+```text
+Bad:  <label>Slug (латиница)</label>
+Good: <label>Адрес витрины</label>
+```
+
+## 2. No explanations in the UI
+
+- Do **not** put teaching / architecture / “для проверок…” / JWT / sandbox essays next to controls.
+- Short labels + actions only. If something needs a note for developers → **comment in code**, not on screen.
+- Errors may be one short sentence; not a tutorial.
+
+```text
+Bad:  subtitle="…отдельная seller-сессия (JWT с client=seller)."
+Good: omit subtitle or one plain RU line users need
+Bad:  <p>Для проверок используем T-Bank sandbox…</p>
+Good: // finance uses T-Bank sandbox in local compose
+      <label>T-ID</label>
+```
+
+## Don't
+
+- Mix EN form chrome with RU body without a settled loanword
+- Dump internal terms (`client=seller`, `finance`, `envelope`) into UI

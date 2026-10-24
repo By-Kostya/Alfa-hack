@@ -1,0 +1,41 @@
+---
+description: Always document API contracts and TS core packages alongside code changes
+alwaysApply: true
+---
+
+# Docs with code (standing rule)
+
+When changing **backend API** or **TS domain core**, update docs **in the same change** — not “later”.
+
+## Backend / API v2
+
+| Change | Doc |
+|---|---|
+| New/changed HTTP route, DTO, auth | `docs/api-v2/services/<service>.md` (+ OpenAPI stub if present) |
+| New service or contour | `docs/api-v2/OVERVIEW.md` |
+| Kafka topic / event shape | `docs/api-v2/KAFKA.md` |
+| Cross-cutting architecture | `docs/BACKEND_ARCHITECTURE.md` |
+
+Keep contracts **contract-first**: paths, request/response shapes, ownership, out-of-scope. Match what FE/`core-api` will call.
+
+## Frontend / TS core
+
+| Change | Doc |
+|---|---|
+| New/changed `@matchwear/core-*` API | `packages/js/<pkg>/README.md` (exports, examples, ports) |
+| New domain package | README + row in `docs/FRONTEND_ARCHITECTURE.md` |
+| New `core-api` live/mock port | short note in package README or `docs/api-v2` link |
+
+`core-*` stays **no React**; docs describe pure functions / controllers / ports.
+
+## Always
+
+- Ship doc updates with the feature PR/commit that introduces the surface
+- Prefer short accurate docs over long aspirational ones
+- If behavior diverges from docs, fix docs in the same edit
+
+## Don't
+
+- Leave new `/v2/...` endpoints undocumented
+- Add public `core-*` exports without README mention
+- Dump secrets, tokens, or full env values into docs
