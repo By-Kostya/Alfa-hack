@@ -2,6 +2,30 @@ export type ApiErrorBody = {
   error?: string;
 };
 
+export type UserProfile = {
+  id: string;
+  phone: string;
+  full_name?: string | null;
+  role?: string | null;
+  email?: string | null;
+  company?: CompanyProfile | null;
+  [field: string]: unknown;
+};
+
+export type CompanyProfile = {
+  inn?: string | null;
+  ogrn?: string | null;
+  name?: string | null;
+  short_name?: string | null;
+  status?: string | null;
+  registration_date?: string | null;
+  okved?: string | null;
+  monthly_revenue_rub?: number | null;
+  credit_rating?: number | null;
+  rating_grade?: string | null;
+  preapproved_limit_rub?: number | null;
+};
+
 export type AuthSession = {
   token: string;
   user: {
