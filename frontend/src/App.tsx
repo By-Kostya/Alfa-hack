@@ -414,25 +414,119 @@ function App() {
         <div className={`auth-content${cabinet ? ' auth-content--dashboard' : ''}`}>
           <div className={`auth-copy${cabinet ? ' auth-copy--dashboard' : ''}`}>
             {cabinet ? (
-              cabinetScreen === 'dashboard' ? (
+              route === ROUTES.dashboard ? (
                 <section className="dashboard" aria-labelledby="auth-title">
-                  <div className="dashboard-heading">
-                    <div>
-                      <p className="eyebrow">Личный кабинет</p>
-                      <h1 id="auth-title">Здравствуйте</h1>
-                      <p className="dashboard-phone">{cabinet.user.phone}</p>
+                  <section className="product-showcase" aria-label="Кредитные продукты">
+                    <div className="product-showcase-heading">
+                      <p className="product-showcase-kicker"><span /> АЛЬФА-БИЗНЕС · ФИНАНСИРОВАНИЕ</p>
+                      <h1 id="auth-title">Продукты для<br />вашего бизнеса</h1>
                     </div>
-                    <button
-                      className="dashboard-cta"
-                      type="button"
-                      onClick={() => {
-                        setCabinetScreen('product-choice');
-                        setSelectedProduct(null);
-                      }}
-                    >
-                      <span aria-hidden="true">＋</span> Взять кредит
-                    </button>
-                  </div>
+                    {cabinet.products.length ? (
+                      <>
+                        <div
+                          className="product-carousel-viewport"
+                          ref={productCarouselRef}
+                          onScroll={syncActiveProductFromScroll}
+                          onPointerDown={handleCarouselPointerDown}
+                          onPointerMove={handleCarouselPointerMove}
+                          onPointerUp={handleCarouselPointerUp}
+                          onPointerCancel={handleCarouselPointerUp}
+                          onClickCapture={handleCarouselClickCapture}
+                          role="region"
+                          aria-roledescription="карусель"
+                          aria-label="Лента кредитных продуктов"
+                          tabIndex={0}
+                        >
+                          <div className="product-carousel-track">
+                            {cabinet.products.map((product, index) => (
+                              <article
+                                className={`product-slide${index === activeProductIndex ? ' product-slide--active' : ''}`}
+                                key={product.code}
+                                ref={(element) => { productSlideRefs.current[index] = element; }}
+                                role="group"
+                                aria-roledescription="слайд"
+                                aria-live={index === activeProductIndex ? 'polite' : 'off'}
+                                aria-label={`${product.title}, ${index + 1} из ${cabinet.products.length}`}
+                                aria-current={index === activeProductIndex ? 'true' : undefined}
+                                onClick={(event) => {
+                                  if (index !== activeProductIndex && !(event.target instanceof Element && event.target.closest('button'))) {
+                                    goToProduct(index);
+                                  }
+                                }}
+                              >
+                                <div className="product-slide-copy">
+                                  <span className="product-slide-badge">{product.badge}</span>
+                                  <h2>{product.title}</h2>
+                                  <p>{product.description}</p>
+                                  <div className="product-slide-facts">
+                                    <div><span>Ставка</span><strong>от {product.rate_pct}%</strong></div>
+                                    <div><span>Срок</span><strong>{product.min_term_months}–{product.max_term_months} мес.</strong></div>
+                                  </div>
+                                  <button
+                                    className="product-slide-cta"
+                                    type="button"
+                                    onClick={() => {
+                                      setSelectedProduct(product.code);
+                                      navigateTo(ROUTES.productChoice);
+                                    }}
+                                  >
+                                    Выбрать продукт <span aria-hidden="true">→</span>
+                                  </button>
+                                </div>
+                                <div className="product-slide-art" aria-hidden="true">
+                                  <span className="product-slide-art-index">{String(index + 1).padStart(2, '0')}</span>
+                                  <span className="product-slide-art-letter">А</span>
+                                  <div className="product-slide-amount">
+                                    <span>ДОСТУПНАЯ СУММА</span>
+                                    <strong>до {formatCompactRub(product.max_amount_rub)}</strong>
+                                    <i>{formatRub(product.min_amount_rub)} — {formatRub(product.max_amount_rub)}</i>
+                                  </div>
+                                  <span className="product-slide-art-code">{product.code.replace(/_/g, ' ').toUpperCase()}</span>
+                                </div>
+                              </article>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="product-carousel-footer">
+                          <div className="product-carousel-dots" aria-label="Выберите продукт">
+                            {cabinet.products.map((item, index) => (
+                              <button
+                                key={item.code}
+                                className={`product-carousel-dot${index === activeProductIndex ? ' product-carousel-dot--active' : ''}`}
+                                type="button"
+                                aria-label={`Показать продукт: ${item.title}`}
+                                aria-current={index === activeProductIndex ? 'true' : undefined}
+                                onClick={() => goToProduct(index)}
+                              />
+                            ))}
+                          </div>
+                          <div className="product-carousel-arrows">
+                            <span>{String(activeProductIndex + 1).padStart(2, '0')} <i>/</i> {String(cabinet.products.length).padStart(2, '0')}</span>
+                            <button type="button" aria-label="Предыдущий продукт" disabled={activeProductIndex === 0} onClick={() => goToProduct(activeProductIndex - 1)}>←</button>
+                            <button type="button" aria-label="Следующий продукт" disabled={activeProductIndex === cabinet.products.length - 1} onClick={() => goToProduct(activeProductIndex + 1)}>→</button>
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="product-showcase-empty">
+                        <p>Сейчас не удалось загрузить предложения.</p>
+                        <button className="product-help-button" type="button" onClick={() => navigateTo(ROUTES.productChoice)}>Помочь с выбором <span aria-hidden="true">→</span></button>
+                      </div>
+                    )}
+                    {cabinet.products.length > 0 && (
+                      <div className="product-help-row">
+                        <span><strong>Не знаете, что подойдёт?</strong><small>Ответьте на один вопрос — поможем с выбором</small></span>
+                        <button className="product-help-button" type="button" onClick={() => {
+                          setSelectedProduct(null);
+                          navigateTo(ROUTES.productChoice);
+                        }}>
+                          Помочь с выбором <span aria-hidden="true">→</span>
+                        </button>
+                      </div>
+                    )}
+                  </section>
+
+                  {cabinet.user.company && <CompanyProfileCard company={cabinet.user.company} />}
 
                   <div className="dashboard-stats" aria-label="Сводка по кабинету">
                     <article className="dashboard-stat">
@@ -443,28 +537,105 @@ function App() {
                       <span>Активные кредиты</span>
                       <strong>{cabinet.credits.filter((credit) => credit.status === 'active').length}</strong>
                     </article>
-                    <article className="dashboard-stat">
-                      <span>Продукты</span>
-                      <strong>{cabinet.products.length}</strong>
-                    </article>
                   </div>
 
-                  <section className="dashboard-section" aria-labelledby="applications-title">
-                    <div className="dashboard-section-heading">
-                      <h2 id="applications-title">Мои заявки</h2>
-                      <span>{cabinet.applications.length}</span>
-                    </div>
-                    {cabinet.applications.length ? (
-                      <ul className="dashboard-list">
-                        {cabinet.applications.slice(0, 3).map((application) => (
-                          <li key={application.id} className="dashboard-list-item">
-                            <div>
-                              <strong>{getProductTitle(cabinet, application.product)}</strong>
-                              <span>{formatShortDate(application.created_at)}</span>
-                            </div>
-                            <div className="dashboard-list-meta">
-                              <strong>{formatRub(application.limit_rub ?? application.loan_amount_rub)}</strong>
-                              <span>{getApplicationStatus(application.status, application.decision)}</span>
+                  <div className="dashboard-columns">
+                    <section className="dashboard-section" aria-labelledby="applications-title">
+                      <div className="dashboard-section-heading">
+                        <h2 id="applications-title">Мои заявки</h2>
+                        <span>{cabinet.applications.length}</span>
+                      </div>
+                      {cabinet.applications.length ? (
+                        <ul className="dashboard-list">
+                          {cabinet.applications.slice(0, 3).map((application) => (
+                            <li key={application.id} className="dashboard-list-item">
+                              <button className="dashboard-list-item-button" type="button" onClick={() => void showApplicationDetail(application.id)}>
+                                <span>
+                                  <strong>{getProductTitle(cabinet, application.product)}</strong>
+                                  <span>{formatShortDate(application.created_at)}</span>
+                                </span>
+                                <span className="dashboard-list-meta">
+                                  <strong>{formatRub(application.limit_rub ?? application.loan_amount_rub)}</strong>
+                                  <span>{getApplicationStatus(application.status, application.decision)}</span>
+                                </span>
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="dashboard-empty">Заявок пока нет</p>
+                      )}
+                    </section>
+
+                    <section className="dashboard-section" aria-labelledby="credits-title">
+                      <div className="dashboard-section-heading">
+                        <h2 id="credits-title">Мои кредиты</h2>
+                        <span>{cabinet.credits.length}</span>
+                      </div>
+                      {cabinet.credits.length ? (
+                        <ul className="dashboard-list">
+                          {cabinet.credits.slice(0, 3).map((credit) => (
+                            <li key={credit.id} className="dashboard-list-item">
+                              <button className="dashboard-list-item-button" type="button" onClick={() => void showCreditDetail(credit.id)}>
+                                <span>
+                                  <strong>{getProductTitle(cabinet, credit.product)}</strong>
+                                  <span>{credit.status === 'active' ? 'Активен' : credit.status}</span>
+                                </span>
+                                <span className="dashboard-list-meta">
+                                  <strong>{formatRub(credit.amount_rub)}</strong>
+                                  <span>Платёж {formatRub(credit.monthly_payment_rub)} в месяц</span>
+                                </span>
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="dashboard-empty">Кредитов пока нет</p>
+                      )}
+                    </section>
+                  </div>
+                  <button className="logout-button" type="button" onClick={handleLogout}>Выйти</button>
+                  {(cabinetDetail || isLoadingCabinetDetail || cabinetDetailError) && (
+                    <div className="detail-backdrop" role="presentation" onClick={closeCabinetDetail}>
+                      <section
+                        className="detail-dialog"
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="detail-title"
+                        onClick={(event) => event.stopPropagation()}
+                      >
+                        <button className="detail-close" type="button" onClick={closeCabinetDetail} aria-label="Закрыть">×</button>
+                        {isLoadingCabinetDetail && <p className="detail-loading">Загружаем данные…</p>}
+                        {cabinetDetailError && <p className="request-error" role="alert">{cabinetDetailError}</p>}
+                        {cabinetDetail?.kind === 'application' && (
+                          <>
+                            <p className="eyebrow">Заявка</p>
+                            <h2 id="detail-title">{getProductTitle(cabinet, cabinetDetail.value.product)}</h2>
+                            <dl className="detail-grid">
+                              <div><dt>Статус</dt><dd>{getApplicationStatus(cabinetDetail.value.status, cabinetDetail.value.decision)}</dd></div>
+                              <div><dt>Сумма</dt><dd>{formatRub(cabinetDetail.value.limit_rub ?? cabinetDetail.value.loan_amount_rub)}</dd></div>
+                              <div><dt>Срок</dt><dd>{cabinetDetail.value.loan_term_months} мес.</dd></div>
+                              <div><dt>Дата</dt><dd>{formatShortDate(cabinetDetail.value.created_at)}</dd></div>
+                              <div className="detail-grid-wide"><dt>Цель</dt><dd>{cabinetDetail.value.purpose || 'Не указана'}</dd></div>
+                            </dl>
+                          </>
+                        )}
+                        {cabinetDetail?.kind === 'credit' && (
+                          <>
+                            <p className="eyebrow">Кредит</p>
+                            <h2 id="detail-title">{getProductTitle(cabinet, cabinetDetail.value.product)}</h2>
+                            <dl className="detail-grid">
+                              <div><dt>Статус</dt><dd>{cabinetDetail.value.status === 'active' ? 'Активен' : cabinetDetail.value.status}</dd></div>
+                              <div><dt>Сумма</dt><dd>{formatRub(cabinetDetail.value.amount_rub)}</dd></div>
+                              <div><dt>Платёж в месяц</dt><dd>{formatRub(cabinetDetail.value.monthly_payment_rub)}</dd></div>
+                              <div><dt>Срок</dt><dd>{cabinetDetail.value.loan_term_months} мес.</dd></div>
+                              <div className="detail-grid-wide"><dt>Цель</dt><dd>{cabinetDetail.value.purpose || 'Не указана'}</dd></div>
+                            </dl>
+                            <div className="detail-schedule">
+                              <strong>График платежей</strong>
+                              {cabinetDetail.value.schedule.slice(0, 6).map((payment) => (
+                                <span key={payment.month}>Месяц {payment.month}<b>{formatRub(payment.payment_rub)}</b></span>
+                              ))}
                             </div>
                           </li>
                         ))}
