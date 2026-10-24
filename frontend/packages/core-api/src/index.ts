@@ -57,13 +57,32 @@ export type ApplicationCard = {
   id: string;
   status: string;
   product: string;
+  phone: string;
   purpose: string;
   loan_amount_rub: number;
   loan_term_months: number;
+  profitability_rub: number | null;
+  profitability_confirmed: boolean;
+  collateral: boolean;
+  own_funds_rub: number | null;
+  credit_rating: number | null;
   created_at: string;
-  limit_rub: number | null;
+  pipeline: string | null;
+  fallback: boolean;
   monthly_payment_rub: number | null;
+  flow_rub: number | null;
+  limit_rub: number | null;
   decision: 'approve' | 'reduced' | 'reject' | 'unknown' | null;
+  credit_id: string | null;
+};
+
+export type ApplicationDetail = ApplicationCard & {
+  business_plan: string;
+  report: {
+    flow_basis: string;
+    risks: string[];
+    quote: string;
+  } | null;
 };
 
 export type CreditCard = {
@@ -83,6 +102,30 @@ export type Cabinet = {
     phone: string;
   };
   products: Array<{
+};
+
+export type ApplicationCreateRequest = {
+  product: 'working_capital' | 'startup';
+  loan_amount_rub: number;
+  loan_term_months: number;
+  phone?: string | null;
+  purpose?: string | null;
+  profitability_rub?: number | null;
+  profitability_confirmed?: boolean | null;
+  collateral?: boolean | null;
+  business_plan?: string | null;
+  own_funds_rub?: number | null;
+  credit_rating?: number | null;
+};
+
+export type ApplicationConfirmRequest = {
+  phone: string;
+  code?: string | null;
+};
+
+export type Cabinet = {
+  user: UserProfile;
+  products: Product[];
     code: string;
     title: string;
   }>;
