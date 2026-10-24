@@ -1,17 +1,23 @@
 # `@alfa-hack/core-api`
 
-Typed HTTP port for the cabinet API. It contains no React code and follows `docs/contract.md`.
+Typed HTTP client for the Alfa Hack backend. The client follows the live Swagger paths under `/api` and contains no React code.
 
-## Authentication and cabinet
+## Authentication
 
-- `requestMockSmsCode(phone)` opens the demo confirmation step without sending an SMS.
-- `verifyMockSmsCode(phone, code)` accepts the demo code `0000` for a phone with a pending demo request.
-- `createSession(phone)` sends `POST /api/auth/session` with `{ phone }` and returns the bearer token and user.
-- `getCabinet(token)` sends `GET /api/cabinet` with `Authorization: Bearer <token>`.
-- `deleteSession(token)` sends `DELETE /api/auth/session` with the bearer token.
+- `sendSmsCode(phone)` sends `POST /auth/sms/send` and returns `status`, `code`, and `message`.
+- `createSession(phone, code)` sends `POST /auth/session` with both fields and returns the session and user.
+- `deleteSession(token)` sends `DELETE /auth/session` with a bearer token.
+- `getCurrentUser(token)` loads `GET /me`.
 
-The cabinet response is typed with the product list, application cards, and credit cards described in `docs/contract.md`.
+## Dashboard and credit flow
 
-The SMS step is a frontend mock because the backend contract has no SMS gateway or code-verification endpoint. Replace these mock methods with the real SMS API before production use.
+- `getProducts()` loads `GET /products` and returns typed product descriptions, badges, rates, amount limits, and term limits; `getProductDetail(code)` loads `GET /products/{code}` and adds the product-specific fields required for an application.
+- `getApplications(token)` and `getCredits(token)` load the user's lists.
+- `getApplicationDetail(token, id)` and `getCreditDetail(token, id)` load individual records.
+- `createApplication(token, input)` sends `POST /applications`.
+- `confirmApplication(token, id, input)` sends `POST /applications/{id}/confirm`.
+- `getDashboardData(token)` composes the dashboard from `/me`, `/products`, `/applications`, and `/credits`. It does not call the aggregate `/cabinet` route.
 
-The default API base is `http://10.193.155.238:8000/api`, matching the backend Swagger URL supplied for this project. Set `VITE_API_BASE_URL` to the backend URL including the `/api` prefix for another environment. API failures throw `ApiError` with the server's human-readable error and HTTP status.
+The live OpenAPI now includes success schemas for `GET /me`, `GET /credits`, and `GET /credits/{credit_id}`. The credits list returns `{ credits: CreditShortOut[] }`; each record includes its application, product, status, amount, term, monthly payment, and creation date. Credit detail also includes the payment schedule. The client already calls both credit routes separately. `UserProfile` includes `full_name`, `role`, `email`, and the optional company profile (`inn`, `ogrn`, `name`, `short_name`, `status`, `registration_date`, `okved`, revenue, credit rating, and preapproved limit). Application and credit response types mirror the live OpenAPI schemas.
+
+The default API base is `http://10.193.155.238:8000/api`; set `VITE_API_BASE_URL` to override it. `ApiError` carries the HTTP status and a human-readable server message when available.
