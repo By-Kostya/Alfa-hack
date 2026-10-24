@@ -637,54 +637,29 @@ function App() {
                                 <span key={payment.month}>Месяц {payment.month}<b>{formatRub(payment.payment_rub)}</b></span>
                               ))}
                             </div>
-                          </li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p className="dashboard-empty">Заявок пока нет</p>
-                    )}
-                  </section>
-
-                  <section className="dashboard-section" aria-labelledby="credits-title">
-                    <div className="dashboard-section-heading">
-                      <h2 id="credits-title">Мои кредиты</h2>
-                      <span>{cabinet.credits.length}</span>
+                          </>
+                        )}
+                      </section>
                     </div>
-                    {cabinet.credits.length ? (
-                      <ul className="dashboard-list">
-                        {cabinet.credits.slice(0, 3).map((credit) => (
-                          <li key={credit.id} className="dashboard-list-item">
-                            <div>
-                              <strong>{getProductTitle(cabinet, credit.product)}</strong>
-                              <span>{credit.status === 'active' ? 'Активен' : credit.status}</span>
-                            </div>
-                            <div className="dashboard-list-meta">
-                              <strong>{formatRub(credit.amount_rub)}</strong>
-                              <span>Платёж {formatRub(credit.monthly_payment_rub)} в месяц</span>
-                            </div>
-                          </li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p className="dashboard-empty">Кредитов пока нет</p>
-                    )}
-                  </section>
-                  <button className="logout-button" type="button" onClick={handleLogout}>Выйти</button>
+                  )}
                 </section>
               ) : (
                 <section className="product-choice" aria-labelledby="auth-title">
                   <button
                     className="back-button"
                     type="button"
-                    onClick={() => setCabinetScreen('dashboard')}
+                    onClick={() => navigateTo(ROUTES.dashboard)}
                   >
                     ← Личный кабинет
                   </button>
-                  <p className="eyebrow">Подбор кредита</p>
-                  <h1 id="auth-title">Для чего нужен кредит?</h1>
-                  <p className="intro">Выберите задачу, чтобы начать с подходящего продукта</p>
+                  <div className="product-choice-heading">
+                    <div className="product-choice-step"><span>ШАГ 01</span><i /><span>ПОДБОР ФИНАНСИРОВАНИЯ</span></div>
+                    <p className="eyebrow">Подбор финансирования</p>
+                    <h1 id="auth-title">Для чего нужен кредит?</h1>
+                    <p className="intro">Расскажите, что хотите сделать. Подберём подходящий вариант.</p>
+                  </div>
                   <div className="product-choice-list">
-                    {cabinet.products.map((product) => (
+                    {cabinet.products.map((product, index) => (
                       <button
                         className={`product-choice-card${selectedProduct === product.code ? ' product-choice-card--selected' : ''}`}
                         type="button"
@@ -692,20 +667,33 @@ function App() {
                         aria-pressed={selectedProduct === product.code}
                         onClick={() => setSelectedProduct(product.code)}
                       >
-                        <span className="product-choice-check" aria-hidden="true">
-                          {selectedProduct === product.code ? '✓' : ''}
-                        </span>
+                        <span className="product-choice-index" aria-hidden="true">{String(index + 1).padStart(2, '0')}</span>
                         <span className="product-choice-copy">
                           <strong>{getProductTitle(cabinet, product.code)}</strong>
-                          <span>{getProductDescription(product.code)}</span>
+                          <span>{product.description}</span>
+                        </span>
+                        <span className="product-choice-check" aria-hidden="true">
+                          {selectedProduct === product.code ? '✓' : '→'}
                         </span>
                       </button>
                     ))}
                   </div>
                   {selectedProduct && (
-                    <p className="selected-product" role="status">
-                      Вы выбрали: {getProductTitle(cabinet, selectedProduct)}
-                    </p>
+                    <div className="selected-product" role="status">
+                      <p>Вы выбрали: <strong>{selectedProductDetail?.title ?? getProductTitle(cabinet, selectedProduct)}</strong></p>
+                      {isLoadingProductDetail && <span>Загружаем условия…</span>}
+                      {productDetailError && <span className="request-error">{productDetailError}</span>}
+                      {selectedProductDetail && (
+                        <>
+                          <span>На следующем шаге понадобятся:</span>
+                          <div className="product-requirements">
+                            {selectedProductDetail.fields.map((field) => (
+                              <span key={field}>{getProductFieldTitle(field)}</span>
+                            ))}
+                          </div>
+                        </>
+                      )}
+                    </div>
                   )}
                 </section>
               )
