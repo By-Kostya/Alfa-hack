@@ -1,17 +1,17 @@
 [
   {
     "phone": "79001111111",
-    "full_name": "Иванов Алексей Сергеевич",
-    "role": "Генеральный директор",
-    "email": "alex.ivanov@alfa-tech.ru",
+    "full_name": "Спинко Ренат Дмитриевич",
+    "role": "Индивидуальный предприниматель",
+    "email": "renat@alfa-tech.ru",
     "company": {
       "inn": "7728168971",
       "ogrn": "1027700067328",
-      "name": "ООО «Альфа Технологии»",
-      "short_name": "Альфа Тех",
+      "name": "ИП СПИНКО РЕНАТ ДМИТРИЕВИЧ",
+      "short_name": "matchwear",
       "status": "Действующее предприятие",
       "registration_date": "2020-03-15",
-      "okved": "62.01 Разработка компьютерного ПО",
+      "okved": "62.01 Продажа шмоток",
       "monthly_revenue_rub": 3500000,
       "credit_rating": 820,
       "rating_grade": "Высокая надежность (A+)",
