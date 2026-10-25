@@ -1,11 +1,16 @@
+import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
 
-SQLALCHEMY_DATABASE_URL = "sqlite:///./sql_app.db"
+# База будет лежать в /app/db/sql_app.db внутри контейнера
+DB_DIR = os.getenv("DB_DIR", "./db")
+os.makedirs(DB_DIR, exist_ok=True)
 
-# connect_args={"check_same_thread": False} нужен для SQLite в многопоточном режиме FastAPI
+SQLALCHEMY_DATABASE_URL = f"sqlite:///{DB_DIR}/sql_app.db"
+
 engine = create_engine(
-    SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
+    SQLALCHEMY_DATABASE_URL,
+    connect_args={"check_same_thread": False}
 )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -14,7 +19,6 @@ Base = declarative_base()
 
 
 def get_db():
-    """Генератор сессии БД для FastAPI Depends"""
     db = SessionLocal()
     try:
         yield db

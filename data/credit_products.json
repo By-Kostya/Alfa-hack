@@ -1,0 +1,57 @@
+[
+  {
+    "code": "working_capital",
+    "title": "Оборотный Экспресс",
+    "description": "Финансирование на закупку товара, расчеты с поставщиками и покрытие кассовых разрывов.",
+    "badge": "Без залога • Решение за 2 мин",
+    "rate_pct": 20.0,
+    "min_amount_rub": 300000,
+    "max_amount_rub": 2000000,
+    "min_term_months": 3,
+    "max_term_months": 36,
+    "fields": [
+      "loan_amount_rub",
+      "loan_term_months",
+      "purpose",
+      "profitability_rub",
+      "profitability_confirmed",
+      "collateral"
+    ]
+  },
+  {
+    "code": "startup",
+    "title": "Альфа-Старт: Инвестиционный",
+    "description": "Кредит на запуск нового бизнеса или проекта. Оценка через ИИ-анализ бизнес-плана.",
+    "badge": "ИИ-оценка • Для нового бизнеса",
+    "rate_pct": 20.0,
+    "min_amount_rub": 300000,
+    "max_amount_rub": 2000000,
+    "min_term_months": 6,
+    "max_term_months": 48,
+    "fields": [
+      "loan_amount_rub",
+      "loan_term_months",
+      "business_plan",
+      "own_funds_rub"
+    ]
+  },
+  {
+    "code": "contract_execution",
+    "title": "Госконтракт и Тендер",
+    "description": "Финансирование исполнения контрактов (44-ФЗ / 223-ФЗ) и коммерческих поставок под обеспечение.",
+    "badge": "Крупный лимит • Под контракт",
+    "rate_pct": 20.0,
+    "min_amount_rub": 500000,
+    "max_amount_rub": 5000000,
+    "min_term_months": 3,
+    "max_term_months": 24,
+    "fields": [
+      "loan_amount_rub",
+      "loan_term_months",
+      "purpose",
+      "profitability_rub",
+      "profitability_confirmed",
+      "collateral"
+    ]
+  }
+]

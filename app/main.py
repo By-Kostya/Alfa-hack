@@ -1,7 +1,7 @@
 import os
 import json
 import uuid
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Union
 from fastapi import FastAPI, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
@@ -15,12 +15,14 @@ from app.auth import get_current_user_required, get_current_user_optional
 from app.scoring.pipeline import run_scoring_pipeline
 from app.scoring.calculator import calculate_annuity_payment
 
-# Создаем таблицы в БД при старте
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="Alfa Credit Core API", version="1.0.0")
+app = FastAPI(
+    title="Alfa Credit Core API",
+    version="1.0.0",
+    description="Цифровой кредитный конвейер малого бизнеса: база продуктов, ИИ-скоринг, личный кабинет."
+)
 
-# Включаем CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -29,57 +31,76 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Разрешенные тестовые номера из синтетических данных
 ALLOWED_PHONES = {"79001111111", "79002222222", "79003333333"}
 PHONE_ERROR_MSG = "Пользователь не найден. Доступны тестовые номера: 79001111111, 79002222222, 79003333333"
 
 
-# --- Автоматический сид синтетических данных при запуске ---
-def seed_synthetic_data():
+# --- Автоматический сид профилей И продуктов в БД ---
+def seed_initial_data():
     db = SessionLocal()
     try:
+        # 1. Сидирование профилей пользователей и компаний
         profiles_path = "data/synthetic_profiles.json"
-        if not os.path.exists(profiles_path):
-            return
+        if os.path.exists(profiles_path):
+            with open(profiles_path, "r", encoding="utf-8") as f:
+                profiles = json.load(f)
+            for p in profiles:
+                user = db.query(db_models.User).filter(db_models.User.phone == p["phone"]).first()
+                if not user:
+                    user = db_models.User(
+                        phone=p["phone"],
+                        token=f"tok_{uuid.uuid4().hex[:12]}",
+                        full_name=p.get("full_name", "Предприниматель"),
+                        role=p.get("role", "Руководитель"),
+                        email=p.get("email", "")
+                    )
+                    db.add(user)
+                    db.flush()
 
-        with open(profiles_path, "r", encoding="utf-8") as f:
-            profiles = json.load(f)
+                company = db.query(db_models.Company).filter(db_models.Company.user_id == user.id).first()
+                if not company and "company" in p:
+                    c = p["company"]
+                    company = db_models.Company(
+                        user_id=user.id,
+                        inn=c["inn"],
+                        ogrn=c.get("ogrn", ""),
+                        name=c["name"],
+                        short_name=c.get("short_name", ""),
+                        status=c.get("status", "Действующее предприятие"),
+                        registration_date=c.get("registration_date", "2022-01-01"),
+                        okved=c.get("okved", ""),
+                        monthly_revenue_rub=c.get("monthly_revenue_rub", 0),
+                        credit_rating=c.get("credit_rating", 500),
+                        rating_grade=c.get("rating_grade", "Средняя надежность"),
+                        preapproved_limit_rub=c.get("preapproved_limit_rub", 0)
+                    )
+                    db.add(company)
 
-        for p in profiles:
-            user = db.query(db_models.User).filter(db_models.User.phone == p["phone"]).first()
-            if not user:
-                user = db_models.User(
-                    phone=p["phone"],
-                    token=f"tok_{uuid.uuid4().hex[:12]}",
-                    full_name=p.get("full_name", "Предприниматель"),
-                    role=p.get("role", "Руководитель"),
-                    email=p.get("email", "")
-                )
-                db.add(user)
-                db.flush()
-
-            company = db.query(db_models.Company).filter(db_models.Company.user_id == user.id).first()
-            if not company and "company" in p:
-                c_data = p["company"]
-                company = db_models.Company(
-                    user_id=user.id,
-                    inn=c_data["inn"],
-                    ogrn=c_data.get("ogrn", ""),
-                    name=c_data["name"],
-                    short_name=c_data.get("short_name", ""),
-                    status=c_data.get("status", "Действующее предприятие"),
-                    registration_date=c_data.get("registration_date", "2022-01-01"),
-                    okved=c_data.get("okved", ""),
-                    monthly_revenue_rub=c_data.get("monthly_revenue_rub", 0),
-                    credit_rating=c_data.get("credit_rating", 500),
-                    rating_grade=c_data.get("rating_grade", "Средняя надежность"),
-                    preapproved_limit_rub=c_data.get("preapproved_limit_rub", 0)
-                )
-                db.add(company)
+        # 2. Сидирование продуктов из JSON в БД
+        products_path = "data/credit_products.json"
+        if os.path.exists(products_path):
+            with open(products_path, "r", encoding="utf-8") as f:
+                products_list = json.load(f)
+            for prod in products_list:
+                existing = db.query(db_models.Product).filter(db_models.Product.code == prod["code"]).first()
+                if not existing:
+                    db_prod = db_models.Product(
+                        code=prod["code"],
+                        title=prod["title"],
+                        description=prod.get("description", ""),
+                        badge=prod.get("badge", ""),
+                        rate_pct=prod.get("rate_pct", 20.0),
+                        min_amount_rub=prod.get("min_amount_rub", 300000),
+                        max_amount_rub=prod.get("max_amount_rub", 2000000),
+                        min_term_months=prod.get("min_term_months", 3),
+                        max_term_months=prod.get("max_term_months", 36),
+                        fields=prod.get("fields", [])
+                    )
+                    db.add(db_prod)
 
         db.commit()
     except Exception as e:
-        print(f"Error seeding synthetic data: {e}")
+        print(f"Error seeding data: {e}")
         db.rollback()
     finally:
         db.close()
@@ -87,10 +108,10 @@ def seed_synthetic_data():
 
 @app.on_event("startup")
 def on_startup():
-    seed_synthetic_data()
+    seed_initial_data()
 
 
-# --- Единый формат ошибок: {"error": "..."} ---
+# --- Обработчики ошибок ---
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     errors = exc.errors()
@@ -106,6 +127,26 @@ async def http_exception_handler(request: Request, exc: HTTPException):
 
 
 # --- Сериализаторы ---
+def serialize_product_item(p: db_models.Product) -> Dict[str, Any]:
+    return {
+        "code": p.code,
+        "title": p.title,
+        "description": p.description,
+        "badge": p.badge,
+        "rate_pct": p.rate_pct,
+        "min_amount_rub": p.min_amount_rub,
+        "max_amount_rub": p.max_amount_rub,
+        "min_term_months": p.min_term_months,
+        "max_term_months": p.max_term_months,
+    }
+
+
+def serialize_product_detail(p: db_models.Product) -> Dict[str, Any]:
+    res = serialize_product_item(p)
+    res["fields"] = p.fields or []
+    return res
+
+
 def serialize_company(comp: Optional[db_models.Company]) -> Optional[Dict[str, Any]]:
     if not comp:
         return None
@@ -186,27 +227,24 @@ def serialize_credit(credit_obj: db_models.Credit) -> Dict[str, Any]:
 # 1. АВТОРИЗАЦИЯ, SMS И ПРОФИЛЬ
 # ==========================================
 
-@app.post("/api/auth/sms/send", response_model=models.SmsSendResponse)
+@app.post("/api/auth/sms/send", response_model=models.SmsSendResponse, tags=["Auth"])
 def send_sms_code(data: models.SmsSendRequest):
-    # Жесткая проверка номера по белому списку
     if data.phone not in ALLOWED_PHONES:
         raise HTTPException(status_code=400, detail={"error": PHONE_ERROR_MSG})
 
     return {
         "status": "ok",
-        "code": "0000",
-        "message": f"СМС с кодом отправлено на номер {data.phone}. Тестовый код: 0000"
+        "code": "1234",
+        "message": f"СМС с кодом отправлено на номер {data.phone}. Тестовый код: 1234"
     }
 
 
-@app.post("/api/auth/session")
+@app.post("/api/auth/session", response_model=models.SessionResponse, tags=["Auth"])
 def create_session(data: models.SessionCreateRequest, db: Session = Depends(get_db)):
-    # Жесткая проверка номера по белому списку
     if data.phone not in ALLOWED_PHONES:
         raise HTTPException(status_code=400, detail={"error": PHONE_ERROR_MSG})
 
-    # Проверка СМС кода
-    if data.code and data.code not in ["0000"]:
+    if data.code and data.code not in ["1234", "0000"]:
         raise HTTPException(status_code=400, detail={"error": "Неверный код из СМС."})
 
     user = db.query(db_models.User).filter(db_models.User.phone == data.phone).first()
@@ -221,14 +259,14 @@ def create_session(data: models.SessionCreateRequest, db: Session = Depends(get_
     return {"token": user.token, "user": serialize_user(user)}
 
 
-@app.delete("/api/auth/session", status_code=204)
+@app.delete("/api/auth/session", status_code=204, tags=["Auth"])
 def delete_session(user: db_models.User = Depends(get_current_user_required), db: Session = Depends(get_db)):
     user.token = f"revoked_{uuid.uuid4().hex[:8]}"
     db.commit()
     return None
 
 
-@app.get("/api/me")
+@app.get("/api/me", response_model=models.UserProfileOut, tags=["Auth"])
 def get_me(user: db_models.User = Depends(get_current_user_required), db: Session = Depends(get_db)):
     comp = db.query(db_models.Company).filter(db_models.Company.user_id == user.id).first()
     res = serialize_user(user)
@@ -237,38 +275,22 @@ def get_me(user: db_models.User = Depends(get_current_user_required), db: Sessio
 
 
 # ==========================================
-# 2. ПРОДУКТЫ
+# 2. ПРОДУКТЫ (ИЗ БАЗЫ ДАННЫХ)
 # ==========================================
 
-PRODUCTS_INFO = [
-    {"code": "working_capital", "title": "Оборотный кредит"},
-    {"code": "startup", "title": "Кредит на старт"}
-]
+@app.get("/api/products", response_model=models.ProductsListResponse, tags=["Products"])
+def get_products(db: Session = Depends(get_db)):
+    # Читаем продукты напрямую из таблицы БД!
+    db_products = db.query(db_models.Product).all()
+    return {"products": [serialize_product_item(p) for p in db_products]}
 
 
-@app.get("/api/products")
-def get_products():
-    return {"products": PRODUCTS_INFO}
-
-
-@app.get("/api/products/{code}")
-def get_product_by_code(code: str):
-    if code == "working_capital":
-        return {
-            "code": "working_capital",
-            "title": "Оборотный кредит",
-            "fields": [
-                "loan_amount_rub", "loan_term_months", "purpose",
-                "profitability_rub", "profitability_confirmed", "collateral"
-            ]
-        }
-    elif code == "startup":
-        return {
-            "code": "startup",
-            "title": "Кредит на старт",
-            "fields": ["loan_amount_rub", "loan_term_months", "business_plan"]
-        }
-    raise HTTPException(status_code=404, detail={"error": "Неизвестный продукт."})
+@app.get("/api/products/{code}", response_model=models.ProductDetail, tags=["Products"])
+def get_product_by_code(code: str, db: Session = Depends(get_db)):
+    prod = db.query(db_models.Product).filter(db_models.Product.code == code).first()
+    if not prod:
+        raise HTTPException(status_code=404, detail={"error": "Неизвестный продукт."})
+    return serialize_product_detail(prod)
 
 
 # ==========================================
@@ -320,17 +342,17 @@ def execute_scoring_and_create_credit(app_obj: db_models.Application, db: Sessio
 # 3. ЗАЯВКИ
 # ==========================================
 
-@app.post("/api/applications", status_code=201)
+@app.post("/api/applications", status_code=201, response_model=Union[models.ApplicationAnonymousCreateResponse, models.ApplicationFullOut], tags=["Applications"])
 def create_application(
     req: models.ApplicationCreateRequest,
     user: Optional[db_models.User] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ):
-    if req.product == "working_capital":
+    if req.product in ["working_capital", "contract_execution"]:
         if not req.purpose:
-            raise HTTPException(status_code=400, detail={"error": "Для оборотного кредита укажите цель."})
+            raise HTTPException(status_code=400, detail={"error": "Укажите цель финансирования."})
         if req.profitability_rub is None:
-            raise HTTPException(status_code=400, detail={"error": "Для оборотного кредита укажите доходность."})
+            raise HTTPException(status_code=400, detail={"error": "Укажите среднемесячную доходность."})
     elif req.product == "startup":
         if not req.business_plan or not req.business_plan.strip():
             raise HTTPException(status_code=400, detail={"error": "Для кредита на старт нужен бизнес-план."})
@@ -340,7 +362,6 @@ def create_application(
         if not req.phone:
             raise HTTPException(status_code=401, detail={"error": "Требуется авторизация или номер телефона в заявке."})
 
-        # Проверяем белый список
         if req.phone not in ALLOWED_PHONES:
             raise HTTPException(status_code=400, detail={"error": PHONE_ERROR_MSG})
 
@@ -400,7 +421,7 @@ def create_application(
     return serialize_application(app_obj)
 
 
-@app.post("/api/applications/{app_id}/confirm")
+@app.post("/api/applications/{app_id}/confirm", response_model=models.ApplicationFullOut, tags=["Applications"])
 def confirm_application(
     app_id: str,
     req: models.ApplicationConfirmRequest,
@@ -425,7 +446,7 @@ def confirm_application(
     return serialize_application(app_obj)
 
 
-@app.get("/api/applications")
+@app.get("/api/applications", response_model=models.ApplicationsListResponse, tags=["Applications"])
 def get_user_applications(
     user: db_models.User = Depends(get_current_user_required),
     db: Session = Depends(get_db)
@@ -436,7 +457,7 @@ def get_user_applications(
     return {"applications": [serialize_application_short(a) for a in apps]}
 
 
-@app.get("/api/applications/{app_id}")
+@app.get("/api/applications/{app_id}", response_model=models.ApplicationFullOut, tags=["Applications"])
 def get_application_detail(
     app_id: str,
     user: db_models.User = Depends(get_current_user_required),
@@ -457,7 +478,7 @@ def get_application_detail(
 # 4. КРЕДИТЫ
 # ==========================================
 
-@app.get("/api/credits")
+@app.get("/api/credits", response_model=models.CreditsListResponse, tags=["Credits"])
 def get_user_credits(
     user: db_models.User = Depends(get_current_user_required),
     db: Session = Depends(get_db)
@@ -468,7 +489,7 @@ def get_user_credits(
     return {"credits": [serialize_credit(c) for c in credits]}
 
 
-@app.get("/api/credits/{credit_id}")
+@app.get("/api/credits/{credit_id}", response_model=models.CreditDetailOut, tags=["Credits"])
 def get_credit_detail(
     credit_id: str,
     user: db_models.User = Depends(get_current_user_required),
@@ -496,7 +517,7 @@ def get_credit_detail(
 # 5. КАБИНЕТ
 # ==========================================
 
-@app.get("/api/cabinet")
+@app.get("/api/cabinet", response_model=models.CabinetResponse, tags=["Cabinet"])
 def get_cabinet(
     user: db_models.User = Depends(get_current_user_required),
     db: Session = Depends(get_db)
@@ -511,10 +532,14 @@ def get_cabinet(
         db_models.Credit.user_id == user.id
     ).order_by(db_models.Credit.created_at.desc()).all()
 
+    # Берем продукты из базы данных
+    db_products = db.query(db_models.Product).all()
+    products_items = [serialize_product_item(p) for p in db_products]
+
     return {
         "user": serialize_user(user),
         "company": serialize_company(company),
-        "products": PRODUCTS_INFO,
+        "products": products_items,
         "applications": [serialize_application_short(a) for a in apps],
         "credits": [serialize_credit(c) for c in credits]
     }

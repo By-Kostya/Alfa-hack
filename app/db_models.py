@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime, timezone
-from sqlalchemy import Column, String, Integer, Boolean, ForeignKey, JSON
+from sqlalchemy import Column, String, Integer, Float, Boolean, ForeignKey, JSON
 from app.database import Base
 
 
@@ -38,8 +38,23 @@ class Company(Base):
     okved = Column(String, default="")
     monthly_revenue_rub = Column(Integer, default=0)
     credit_rating = Column(Integer, default=500)
-    rating_grade = Column(String, default="Средний уровень")
+    rating_grade = Column(String, default="Средняя надежность")
     preapproved_limit_rub = Column(Integer, default=0)
+
+
+class Product(Base):
+    __tablename__ = "products"
+
+    code = Column(String, primary_key=True, index=True)
+    title = Column(String, nullable=False)
+    description = Column(String, default="")
+    badge = Column(String, default="")
+    rate_pct = Column(Float, default=20.0)
+    min_amount_rub = Column(Integer, default=300000)
+    max_amount_rub = Column(Integer, default=2000000)
+    min_term_months = Column(Integer, default=3)
+    max_term_months = Column(Integer, default=36)
+    fields = Column(JSON, default=list)
 
 
 class Application(Base):

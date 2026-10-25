@@ -3,7 +3,7 @@ from pydantic import BaseModel, Field, field_validator
 import re
 
 
-# --- Базовая ошибка по контракту ---
+# --- Базовая ошибка ---
 class ErrorResponse(BaseModel):
     error: str
 
@@ -19,7 +19,7 @@ def validate_phone_str(phone: Optional[str]) -> Optional[str]:
 
 # --- Авторизация и SMS ---
 class SmsSendRequest(BaseModel):
-    phone: str
+    phone: str = Field(..., example="79001111111")
 
     @field_validator("phone")
     def check_phone(cls, v):
@@ -27,14 +27,14 @@ class SmsSendRequest(BaseModel):
 
 
 class SmsSendResponse(BaseModel):
-    status: str
-    code: str
-    message: str
+    status: str = Field(..., example="ok")
+    code: str = Field(..., example="1234")
+    message: str = Field(..., example="СМС отправлено. Код: 1234")
 
 
 class SessionCreateRequest(BaseModel):
-    phone: str
-    code: Optional[str] = None
+    phone: str = Field(..., example="79001111111")
+    code: Optional[str] = Field(None, example="1234")
 
     @field_validator("phone")
     def check_phone(cls, v):
@@ -43,57 +43,70 @@ class SessionCreateRequest(BaseModel):
 
 # --- Профиль пользователя и компании ---
 class CompanyOut(BaseModel):
-    inn: str
-    ogrn: str
-    name: str
-    short_name: str
-    status: str
-    registration_date: str
-    okved: str
-    monthly_revenue_rub: int
-    credit_rating: int
-    rating_grade: str
-    preapproved_limit_rub: int
+    inn: str = Field(..., example="7728168971")
+    ogrn: str = Field(..., example="1027700067328")
+    name: str = Field(..., example="ООО «Альфа Технологии»")
+    short_name: str = Field(..., example="Альфа Тех")
+    status: str = Field(..., example="Действующее предприятие")
+    registration_date: str = Field(..., example="2020-03-15")
+    okved: str = Field(..., example="62.01 Разработка компьютерного ПО")
+    monthly_revenue_rub: int = Field(..., example=3500000)
+    credit_rating: int = Field(..., example=820)
+    rating_grade: str = Field(..., example="Высокая надежность (A+)")
+    preapproved_limit_rub: int = Field(..., example=2000000)
 
 
 class UserOut(BaseModel):
-    id: str
-    phone: str
-    full_name: Optional[str] = "Предприниматель"
-    role: Optional[str] = "Руководитель"
-    email: Optional[str] = ""
+    id: str = Field(..., example="user-1")
+    phone: str = Field(..., example="79001111111")
+    full_name: str = Field(..., example="Иванов Алексей Сергеевич")
+    role: str = Field(..., example="Генеральный директор")
+    email: str = Field(..., example="alex.ivanov@alfa-tech.ru")
+
+
+class UserProfileOut(UserOut):
+    company: Optional[CompanyOut] = None
 
 
 class SessionResponse(BaseModel):
-    token: str
+    token: str = Field(..., example="tok_123456789abc")
     user: UserOut
 
 
-# --- Продукты ---
+# --- Продукты (Расширенные!) ---
 class ProductItem(BaseModel):
-    code: str
-    title: str
+    code: str = Field(..., example="working_capital")
+    title: str = Field(..., example="Оборотный Экспресс")
+    description: str = Field(..., example="Быстрое пополнение оборотных средств без залога")
+    badge: str = Field(..., example="Без залога")
+    rate_pct: float = Field(..., example=20.0)
+    min_amount_rub: int = Field(..., example=300000)
+    max_amount_rub: int = Field(..., example=2000000)
+    min_term_months: int = Field(..., example=3)
+    max_term_months: int = Field(..., example=36)
 
 
-class ProductDetail(BaseModel):
-    code: str
-    title: str
-    fields: List[str]
+class ProductsListResponse(BaseModel):
+    products: List[ProductItem]
+
+
+class ProductDetail(ProductItem):
+    fields: List[str] = Field(..., example=["loan_amount_rub", "loan_term_months", "purpose"])
 
 
 # --- Заявка (Создание) ---
 class ApplicationCreateRequest(BaseModel):
-    product: str = Field(..., pattern="^(working_capital|startup)$")
-    loan_amount_rub: int = Field(..., gt=0)
-    loan_term_months: int = Field(..., ge=1, le=360)
-    phone: Optional[str] = None
-    purpose: Optional[str] = ""
-    profitability_rub: Optional[int] = None
-    profitability_confirmed: Optional[bool] = False
-    collateral: Optional[bool] = False
-    business_plan: Optional[str] = ""
-    own_funds_rub: Optional[int] = None
-    credit_rating: Optional[int] = None
+    product: str = Field(..., pattern="^(working_capital|startup|contract_execution)$", example="working_capital")
+    loan_amount_rub: int = Field(..., gt=0, example=800000)
+    loan_term_months: int = Field(..., ge=1, le=360, example=12)
+    phone: Optional[str] = Field(None, example="79001111111")
+    purpose: Optional[str] = Field("", example="пополнение оборота")
+    profitability_rub: Optional[int] = Field(None, example=160000)
+    profitability_confirmed: Optional[bool] = Field(False, example=True)
+    collateral: Optional[bool] = Field(False, example=False)
+    business_plan: Optional[str] = Field("", example="")
+    own_funds_rub: Optional[int] = Field(None, example=100000)
+    credit_rating: Optional[int] = Field(None, example=500)
 
     @field_validator("phone")
     def check_phone(cls, v):
@@ -101,8 +114,8 @@ class ApplicationCreateRequest(BaseModel):
 
 
 class ApplicationConfirmRequest(BaseModel):
-    phone: str
-    code: Optional[str] = None
+    phone: str = Field(..., example="79001111111")
+    code: Optional[str] = Field(None, example="1234")
 
     @field_validator("phone")
     def check_phone(cls, v):
@@ -111,84 +124,98 @@ class ApplicationConfirmRequest(BaseModel):
 
 # --- Отчет скоринга ---
 class ScoringReport(BaseModel):
-    flow_basis: str
-    risks: List[str]
-    quote: str
+    flow_basis: str = Field(..., example="form")
+    risks: List[str] = Field(default_factory=list, example=[])
+    quote: str = Field("", example="")
 
 
 # --- Заявка (Полная) ---
 class ApplicationFullOut(BaseModel):
-    id: str
-    status: str
-    product: str
-    phone: str
-    purpose: str
-    loan_amount_rub: int
-    loan_term_months: int
-    profitability_rub: Optional[int]
-    profitability_confirmed: bool
-    collateral: bool
-    business_plan: str
-    own_funds_rub: Optional[int]
-    credit_rating: Optional[int]
-    created_at: str
-    pipeline: Optional[str]
-    fallback: bool
-    monthly_payment_rub: Optional[int]
-    flow_rub: Optional[int]
-    limit_rub: Optional[int]
-    decision: Optional[str]
-    credit_id: Optional[str]
-    report: Optional[ScoringReport]
+    id: str = Field(..., example="app-1")
+    status: str = Field(..., example="scored")
+    product: str = Field(..., example="working_capital")
+    phone: str = Field(..., example="79001111111")
+    purpose: str = Field("", example="пополнение оборота")
+    loan_amount_rub: int = Field(..., example=800000)
+    loan_term_months: int = Field(..., example=12)
+    profitability_rub: Optional[int] = Field(None, example=160000)
+    profitability_confirmed: bool = Field(False, example=True)
+    collateral: bool = Field(False, example=False)
+    business_plan: str = Field("", example="")
+    own_funds_rub: Optional[int] = Field(None, example=100000)
+    credit_rating: Optional[int] = Field(None, example=500)
+    created_at: str = Field(..., example="2026-10-24T15:00:00+00:00")
+    pipeline: Optional[str] = Field(None, example="math")
+    fallback: bool = Field(False, example=True)
+    monthly_payment_rub: Optional[int] = Field(None, example=74108)
+    flow_rub: Optional[int] = Field(None, example=160000)
+    limit_rub: Optional[int] = Field(None, example=800000)
+    decision: Optional[str] = Field(None, example="approve")
+    credit_id: Optional[str] = Field(None, example="credit-1")
+    report: Optional[ScoringReport] = None
 
 
 # --- Заявка (Короткая карточка) ---
 class ApplicationShortOut(BaseModel):
-    id: str
-    status: str
-    product: str
-    phone: str
-    purpose: str
-    loan_amount_rub: int
-    loan_term_months: int
-    profitability_rub: Optional[int]
-    profitability_confirmed: bool
-    collateral: bool
-    own_funds_rub: Optional[int]
-    credit_rating: Optional[int]
-    created_at: str
-    pipeline: Optional[str]
-    fallback: bool
-    monthly_payment_rub: Optional[int]
-    flow_rub: Optional[int]
-    limit_rub: Optional[int]
-    decision: Optional[str]
-    credit_id: Optional[str]
+    id: str = Field(..., example="app-1")
+    status: str = Field(..., example="scored")
+    product: str = Field(..., example="working_capital")
+    phone: str = Field(..., example="79001111111")
+    purpose: str = Field("", example="пополнение оборота")
+    loan_amount_rub: int = Field(..., example=800000)
+    loan_term_months: int = Field(..., example=12)
+    profitability_rub: Optional[int] = Field(None, example=160000)
+    profitability_confirmed: bool = Field(False, example=True)
+    collateral: bool = Field(False, example=False)
+    own_funds_rub: Optional[int] = Field(None, example=100000)
+    credit_rating: Optional[int] = Field(None, example=500)
+    created_at: str = Field(..., example="2026-10-24T15:00:00+00:00")
+    pipeline: Optional[str] = Field(None, example="math")
+    fallback: bool = Field(False, example=True)
+    monthly_payment_rub: Optional[int] = Field(None, example=74108)
+    flow_rub: Optional[int] = Field(None, example=160000)
+    limit_rub: Optional[int] = Field(None, example=800000)
+    decision: Optional[str] = Field(None, example="approve")
+    credit_id: Optional[str] = Field(None, example="credit-1")
+
+
+class ApplicationsListResponse(BaseModel):
+    applications: List[ApplicationShortOut]
+
+
+class ApplicationAnonymousCreateResponse(BaseModel):
+    token: str
+    user: UserOut
+    application: ApplicationFullOut
 
 
 # --- Кредиты ---
 class ScheduleItem(BaseModel):
-    month: int
-    payment_rub: int
+    month: int = Field(..., example=1)
+    payment_rub: int = Field(..., example=74108)
 
 
 class CreditShortOut(BaseModel):
-    id: str
-    application_id: str
-    product: str
-    status: str
-    amount_rub: int
-    loan_term_months: int
-    monthly_payment_rub: int
-    purpose: str
-    created_at: str
+    id: str = Field(..., example="credit-1")
+    application_id: str = Field(..., example="app-1")
+    product: str = Field(..., example="working_capital")
+    status: str = Field(..., example="active")
+    amount_rub: int = Field(..., example=800000)
+    loan_term_months: int = Field(..., example=12)
+    monthly_payment_rub: int = Field(..., example=74108)
+    purpose: str = Field("", example="пополнение оборота")
+    created_at: str = Field(..., example="2026-10-24T15:00:00+00:00")
+
+
+class CreditsListResponse(BaseModel):
+    credits: List[CreditShortOut]
 
 
 class CreditDetailOut(CreditShortOut):
     schedule: List[ScheduleItem]
 
 
-# --- Кабинет (С компанией!) ---
+# --- Кабинет ---
 class CabinetResponse(BaseModel):
     user: UserOut
     company: Optional[CompanyOut] = None
