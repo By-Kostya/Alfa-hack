@@ -1,0 +1,26 @@
+THIRD-PARTY NOTICES AND LICENSES
+
+This project uses the following third-party components, libraries, and mock datasets:
+
+1. FastAPI
+   - License: MIT License
+   - Link: https://github.com/tiangolo/fastapi
+
+2. Pydantic
+   - License: MIT License
+   - Link: https://github.com/pydantic/pydantic
+
+3. SQLAlchemy
+   - License: MIT License
+   - Link: https://github.com/sqlalchemy/sqlalchemy
+
+4. Uvicorn
+   - License: BSD 3-Clause License
+   - Link: https://github.com/encode/uvicorn
+
+5. SQLite
+   - License: Public Domain
+   - Link: https://www.sqlite.org/
+
+Data Mocks & Integrations:
+- BKI (Credit History Bureau) / FNS (Federal Tax Service) integrations are fully mocked and simulated within the application logic as per the hackathon autonomous environment constraints. No real proprietary data or paid APIs are used.
