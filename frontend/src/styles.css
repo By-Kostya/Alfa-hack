@@ -407,6 +407,7 @@ h1 {
 .product-slide-amount > i { color: rgb(255 255 255 / 78%); font-family: Arial, sans-serif; font-size: 10px; font-style: normal; }
 .product-slide-art-code { position: absolute; right: 24px; bottom: 20px; color: rgb(255 255 255 / 72%); font-family: Arial, sans-serif; font-size: 8px; letter-spacing: .12em; }
 .product-carousel-footer { display: flex; align-items: center; justify-content: space-between; padding: 16px 2px 0; }
+.product-carousel-index { color: #777; font-family: Arial, sans-serif; font-size: 10px; letter-spacing: .06em; }
 .product-carousel-dots { display: flex; align-items: center; gap: 7px; }
 .product-carousel-dot { width: 7px; height: 7px; padding: 0; border: 0; border-radius: 50%; background: #d9d7d4; cursor: pointer; transition: width 140ms ease, border-radius 140ms ease, background 140ms ease; }
 .product-carousel-dot--active { width: 25px; border-radius: 8px; background: var(--alfa-red); }
@@ -747,6 +748,8 @@ h1 {
   background: #fff;
   color: var(--ink);
 }
+.apply-input--invalid { border-color: #cc261d; }
+.apply-form .field-error { display: block; }
 .apply-check { display: flex; align-items: center; gap: 10px; font-size: 14px; }
 .apply-entry-list { max-width: 460px; margin-top: 28px; }
 .apply-screen .submit-button { margin-top: 8px; }

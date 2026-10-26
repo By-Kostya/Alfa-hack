@@ -15,9 +15,17 @@ class ErrorResponse(BaseModel):
 def validate_phone_str(phone: Optional[str]) -> Optional[str]:
     if phone is None:
         return None
-    if not re.fullmatch(r"^\d{10,15}$", phone):
-        raise ValueError("Номер должен состоять из 10–15 цифр без знака + и пробелов")
+    if not isinstance(phone, str) or not re.fullmatch(r"^7\d{10}$", phone):
+        raise ValueError("Номер должен состоять из 11 цифр и начинаться с 7.")
     return phone
+
+
+def require_whole_number(value: Any) -> Any:
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ValueError("Укажите целое число без букв и пробелов.")
+    return value
 
 
 # --- Авторизация ---
@@ -71,6 +79,17 @@ class ApplicationCreateRequest(BaseModel):
     @field_validator("phone")
     def check_phone(cls, v):
         return validate_phone_str(v)
+
+    @field_validator(
+        "loan_amount_rub",
+        "loan_term_months",
+        "profitability_rub",
+        "own_funds_rub",
+        "credit_rating",
+        mode="before",
+    )
+    def check_whole_number(cls, v):
+        return require_whole_number(v)
 
     @field_validator("product")
     def check_product(cls, v):

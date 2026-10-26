@@ -55,16 +55,42 @@ if settings.cors_origins:
     )
 
 
+_FIELD_LABELS = {
+    "phone": "Номер",
+    "loan_amount_rub": "Сумма",
+    "loan_term_months": "Срок",
+    "profitability_rub": "Доходность",
+    "purpose": "Цель",
+    "business_plan": "Бизнес-план",
+    "own_funds_rub": "Собственные средства",
+    "credit_rating": "Рейтинг",
+}
+
+
+def _validation_message(error: Dict[str, Any]) -> str:
+    msg = str(error.get("msg") or "Проверьте введённые данные.")
+    if msg.startswith("Value error, "):
+        msg = msg[len("Value error, "):]
+    kind = str(error.get("type") or "")
+    loc = error.get("loc") or ()
+    field = loc[-1] if loc else ""
+    label = _FIELD_LABELS.get(str(field), "Поле")
+    if kind in {"int_parsing", "int_type", "int_from_float", "float_parsing"} or "valid integer" in msg:
+        return f"{label}: укажите целое число."
+    if kind == "greater_than":
+        return f"{label}: укажите число больше нуля."
+    if kind == "greater_than_equal":
+        return f"{label}: укажите срок от 1 месяца."
+    if kind == "missing" or msg == "Field required":
+        return "Заполните обязательные поля."
+    return msg
+
+
 # --- Единый формат ошибок: {"error": "..."} по контракту ---
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     errors = exc.errors()
-    msg = errors[0].get("msg", "Проверьте введённые данные.") if errors else "Проверьте введённые данные."
-    if msg.startswith("Value error, "):
-        msg = msg[len("Value error, "):]
-    if msg == "Field required":
-        msg = "Заполните обязательные поля."
-    return JSONResponse(status_code=400, content={"error": msg})
+    return JSONResponse(status_code=400, content={"error": _validation_message(errors[0] if errors else {})})
 
 
 @app.exception_handler(HTTPException)

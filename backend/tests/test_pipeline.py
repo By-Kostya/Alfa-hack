@@ -74,6 +74,28 @@ class MathPipelineTest(unittest.TestCase):
                 profitability_rub=50_000,
             )
 
+    def test_phone_and_numbers_reject_text(self):
+        from app.models import SessionCreateRequest
+
+        SessionCreateRequest(phone="79001000001")
+        for bad in ("+79001000001", "89001000001", "7900100000", "телефон", "79001000001 "):
+            with self.assertRaises(ValidationError):
+                SessionCreateRequest(phone=bad)
+        with self.assertRaises(ValidationError):
+            ApplicationCreateRequest(
+                product="overdraft",
+                loan_amount_rub="сто тысяч",
+                loan_term_months=6,
+                profitability_rub=50_000,
+            )
+        with self.assertRaises(ValidationError):
+            ApplicationCreateRequest(
+                product="overdraft",
+                loan_amount_rub=100_000,
+                loan_term_months="год",
+                profitability_rub=50_000,
+            )
+
     def test_reject_non_positive_flow(self):
         result = evaluate_math_pipeline(800_000, 12, 0)
         self.assertEqual(result["limit_rub"], 0)

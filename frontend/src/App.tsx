@@ -14,6 +14,8 @@ import {
 import { formatRussianPhone, isRussianPhoneComplete, normalizeRussianPhone } from '@alfa-hack/core-auth';
 import { applicationStatusLabel, fieldLabel, formatCompactRub, formatRub, presentProduct } from '@alfa-hack/core-credit';
 import ApplyScreen from './ApplyScreen';
+import PhoneField from './PhoneField';
+import SwipeBack from './SwipeBack';
 
 const TOKEN_KEY = 'alfa-hack:token';
 const PENDING_PHONE_KEY = 'alfa-hack:pending-phone';
@@ -66,14 +68,24 @@ function App() {
   const productSlideRefs = useRef<Array<HTMLElement | null>>([]);
   const productDragRef = useRef<{ pointerId: number; startX: number; startScrollLeft: number; didDrag: boolean } | null>(null);
   const suppressCarouselClickRef = useRef(false);
+  const historyDepth = useRef(0);
 
   function navigateTo(nextRoute: AppRoute, replace = false) {
     const normalizedRoute = normalizeRoute(nextRoute);
     if (window.location.pathname !== normalizedRoute) {
       const method = replace ? 'replaceState' : 'pushState';
       window.history[method]({}, '', normalizedRoute);
+      if (!replace) historyDepth.current += 1;
     }
     setRoute(normalizedRoute);
+  }
+
+  function goBack(fallback: AppRoute) {
+    if (historyDepth.current > 0) {
+      window.history.back();
+      return;
+    }
+    navigateTo(fallback, true);
   }
 
   const isComplete = isRussianPhoneComplete(phone);
@@ -160,7 +172,10 @@ function App() {
   }
 
   useEffect(() => {
-    const handlePopState = () => setRoute(normalizeRoute(window.location.pathname));
+    const handlePopState = () => {
+      historyDepth.current = Math.max(0, historyDepth.current - 1);
+      setRoute(normalizeRoute(window.location.pathname));
+    };
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
@@ -423,7 +438,7 @@ function App() {
                 sessionPhone={cabinet?.user.phone ?? null}
                 products={cabinet?.products ?? publicProducts}
                 onPickProduct={setSelectedProduct}
-                onBack={() => navigateTo(cabinet ? ROUTES.dashboard : ROUTES.login)}
+                onBack={() => goBack(cabinet ? ROUTES.dashboard : ROUTES.login)}
                 onSession={rememberSession}
                 onDone={() => {
                   const activeToken = sessionStorage.getItem(TOKEN_KEY);
@@ -450,6 +465,16 @@ function App() {
                           onPointerUp={handleCarouselPointerUp}
                           onPointerCancel={handleCarouselPointerUp}
                           onClickCapture={handleCarouselClickCapture}
+                          onKeyDown={(event) => {
+                            if (event.key === 'ArrowRight') {
+                              event.preventDefault();
+                              goToProduct(activeProductIndex + 1);
+                            }
+                            if (event.key === 'ArrowLeft') {
+                              event.preventDefault();
+                              goToProduct(activeProductIndex - 1);
+                            }
+                          }}
                           role="region"
                           aria-roledescription="карусель"
                           aria-label="Лента кредитных продуктов"
@@ -490,7 +515,7 @@ function App() {
                                       navigateTo(ROUTES.productChoice);
                                     }}
                                   >
-                                    Выбрать продукт <span aria-hidden="true">→</span>
+                                    Выбрать продукт
                                   </button>
                                 </div>
                                 <div className="product-slide-art" aria-hidden="true">
@@ -521,17 +546,13 @@ function App() {
                               />
                             ))}
                           </div>
-                          <div className="product-carousel-arrows">
-                            <span>{String(activeProductIndex + 1).padStart(2, '0')} <i>/</i> {String(cabinet.products.length).padStart(2, '0')}</span>
-                            <button type="button" aria-label="Предыдущий продукт" disabled={activeProductIndex === 0} onClick={() => goToProduct(activeProductIndex - 1)}>←</button>
-                            <button type="button" aria-label="Следующий продукт" disabled={activeProductIndex === cabinet.products.length - 1} onClick={() => goToProduct(activeProductIndex + 1)}>→</button>
-                          </div>
+                          <span className="product-carousel-index">{String(activeProductIndex + 1).padStart(2, '0')} / {String(cabinet.products.length).padStart(2, '0')}</span>
                         </div>
                       </>
                     ) : (
                       <div className="product-showcase-empty">
                         <p>Сейчас не удалось загрузить предложения.</p>
-                        <button className="product-help-button" type="button" onClick={() => navigateTo(ROUTES.productChoice)}>Помочь с выбором <span aria-hidden="true">→</span></button>
+                        <button className="product-help-button" type="button" onClick={() => navigateTo(ROUTES.productChoice)}>Помочь с выбором</button>
                       </div>
                     )}
                     {cabinet.products.length > 0 && (
@@ -541,7 +562,7 @@ function App() {
                           setSelectedProduct(null);
                           navigateTo(ROUTES.productChoice);
                         }}>
-                          Помочь с выбором <span aria-hidden="true">→</span>
+                          Помочь с выбором
                         </button>
                       </div>
                     )}
@@ -665,14 +686,8 @@ function App() {
                   )}
                 </section>
               ) : (
+                <SwipeBack onBack={() => goBack(ROUTES.dashboard)}>
                 <section className="product-choice" aria-labelledby="auth-title">
-                  <button
-                    className="back-button"
-                    type="button"
-                    onClick={() => navigateTo(ROUTES.dashboard)}
-                  >
-                    ← Личный кабинет
-                  </button>
                   <div className="product-choice-heading">
                     <div className="product-choice-step"><span>ШАГ 01</span><i /><span>ПОДБОР ФИНАНСИРОВАНИЯ</span></div>
                     <p className="eyebrow">Подбор финансирования</p>
@@ -696,9 +711,9 @@ function App() {
                           <span>{card.description}</span>
                           <span>{card.ratePct}% · до {formatCompactRub(card.maxAmountRub)} · до {card.maxTermMonths} мес.</span>
                         </span>
-                        <span className="product-choice-check" aria-hidden="true">
-                          {selectedProduct === product.code ? '✓' : '→'}
-                        </span>
+                        {selectedProduct === product.code && (
+                          <span className="product-choice-check" aria-hidden="true">✓</span>
+                        )}
                       </button>
                       );
                     })}
@@ -722,11 +737,12 @@ function App() {
                         </>
                       )}
                       <button className="submit-button" type="button" onClick={() => navigateTo(ROUTES.apply)}>
-                        Заполнить заявку <span aria-hidden="true">→</span>
+                        Заполнить заявку
                       </button>
                     </div>
                   )}
                 </section>
+                </SwipeBack>
               )
             ) : (
               <>
@@ -739,29 +755,14 @@ function App() {
 
                 <form className="phone-form" onSubmit={handlePhoneSubmit} noValidate>
                   <label className="phone-label" htmlFor="phone">Номер телефона</label>
-                  <div className={`phone-control${phone.length > 2 && !isComplete ? ' phone-control--invalid' : ''}`}>
-                    <span className="phone-country" aria-hidden="true">🇷🇺 <span>+7</span></span>
-                    <input
-                      id="phone"
-                      name="phone"
-                      type="tel"
-                      inputMode="tel"
-                      autoComplete="tel-national"
-                      placeholder="(999) 123-45-67"
-                      value={phone.slice(2).trimStart()}
-                      onChange={(event) => handlePhoneChange(event.target.value)}
-                      aria-describedby="phone-hint phone-error"
-                      aria-invalid={phone.length > 2 && !isComplete}
-                      disabled={isSubmitting}
-                    />
-                    {isComplete && <span className="phone-check" aria-label="Номер введён полностью">✓</span>}
-                  </div>
-                  <p className="field-hint" id="phone-hint">Российский номер телефона</p>
-                  <p className="field-error" id="phone-error" aria-live="polite">
-                    {phone.length > 2 && !isComplete ? 'Проверьте номер телефона' : ''}
-                  </p>
+                  <PhoneField
+                    id="phone"
+                    value={phone}
+                    onChange={handlePhoneChange}
+                    disabled={isSubmitting}
+                  />
                   <button className="submit-button" type="submit" disabled={!isComplete || isSubmitting}>
-                    {isSubmitting ? 'Входим…' : 'Продолжить'} <span aria-hidden="true">→</span>
+                    {isSubmitting ? 'Входим…' : 'Продолжить'}
                   </button>
                   {error && <p className="request-error" role="alert">{error}</p>}
                 </form>
@@ -892,7 +893,7 @@ function WelcomeScreen({ user, onContinue }: { user: UserProfile; onContinue: ()
           <span className="welcome-profile-check" aria-label="Вход выполнен">✓</span>
         </div>
         <button className="welcome-continue" type="button" onClick={onContinue}>
-          Перейти в кабинет <span aria-hidden="true">→</span>
+          Перейти в кабинет
         </button>
       </section>
 

@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useState, type ChangeEvent, type FormEvent } from 'react';
 import {
   ApiError,
   isLinkApplication,
@@ -11,13 +11,20 @@ import { formatRussianPhone, isRussianPhoneComplete, normalizeRussianPhone } fro
 import {
   applicationStatusLabel,
   emptyDraft,
+  fieldError,
   fieldLabel,
+  formatIntegerInput,
   formatRub,
+  formatSignedIntegerInput,
+  formatTermInput,
+  groupedCaret,
   riskLabel,
   toApplicationRequest,
   validateDraft,
   type ApplicationDraft,
 } from '@alfa-hack/core-credit';
+import PhoneField from './PhoneField';
+import SwipeBack from './SwipeBack';
 
 type ApplyScreenProps = {
   api: ApiClient;
@@ -54,6 +61,7 @@ export default function ApplyScreen({
   const [result, setResult] = useState<ApplicationDetail | null>(null);
   const [phone, setPhone] = useState(() => formatRussianPhone(sessionPhone || '+7'));
   const [error, setError] = useState('');
+  const [showFieldErrors, setShowFieldErrors] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
@@ -61,6 +69,7 @@ export default function ApplyScreen({
     let active = true;
     setDetail(null);
     setError('');
+    setShowFieldErrors(false);
     setStep('fields');
     setResult(null);
     setApplicationId(null);
@@ -85,6 +94,7 @@ export default function ApplyScreen({
     if (!detail || !productCode || isSubmitting) return;
     const problem = validateDraft(draft, detail);
     if (problem) {
+      setShowFieldErrors(true);
       setError(problem);
       return;
     }
@@ -142,8 +152,8 @@ export default function ApplyScreen({
 
   if (!productCode) {
     return (
+      <SwipeBack onBack={onBack}>
       <section className="product-choice" aria-labelledby="auth-title">
-        <button className="back-button" type="button" onClick={onBack}>← Назад</button>
         <p className="eyebrow">Заявка</p>
         <h1 id="auth-title">Выберите продукт</h1>
         <div className="product-choice-list">
@@ -157,14 +167,15 @@ export default function ApplyScreen({
           ))}
         </div>
       </section>
+      </SwipeBack>
     );
   }
 
+  const leave = step === 'phone' ? () => setStep('fields') : onBack;
+
   return (
+    <SwipeBack onBack={leave}>
     <section className="apply-screen" aria-labelledby="auth-title">
-      <button className="back-button" type="button" onClick={step === 'phone' ? () => setStep('fields') : onBack}>
-        ← Назад
-      </button>
       <p className="eyebrow">{detail?.title ?? 'Заявка'}</p>
       {step === 'fields' && (
         <>
@@ -181,6 +192,7 @@ export default function ApplyScreen({
                 field={field}
                 detail={detail}
                 draft={draft}
+                showError={showFieldErrors}
                 onChange={(next) => {
                   setDraft(next);
                   setError('');
@@ -189,7 +201,7 @@ export default function ApplyScreen({
             ))}
             {error && <p className="request-error" role="alert">{error}</p>}
             <button className="submit-button" type="submit" disabled={!detail || isSubmitting}>
-              {isSubmitting ? 'Сохраняем…' : 'Продолжить'} <span aria-hidden="true">→</span>
+              {isSubmitting ? 'Сохраняем…' : 'Продолжить'}
             </button>
           </form>
         </>
@@ -197,25 +209,21 @@ export default function ApplyScreen({
       {step === 'phone' && (
         <>
           <h1 id="auth-title">Подтвердите номер</h1>
-          <form className="phone-form" onSubmit={submitPhone}>
+          <form className="phone-form" onSubmit={submitPhone} noValidate>
             <label className="phone-label" htmlFor="confirm-phone">Номер телефона</label>
-            <input
+            <PhoneField
               id="confirm-phone"
-              className="apply-input"
-              name="phone"
-              type="tel"
-              inputMode="tel"
-              autoComplete="tel"
               value={phone}
-              onChange={(event) => {
-                setPhone(formatRussianPhone(event.target.value));
+              onChange={(next) => {
+                setPhone(next);
                 setError('');
               }}
               disabled={isSubmitting}
+              readOnly={Boolean(sessionPhone)}
             />
             {error && <p className="request-error" role="alert">{error}</p>}
             <button className="submit-button" type="submit" disabled={!isRussianPhoneComplete(phone) || isSubmitting}>
-              {isSubmitting ? 'Считаем…' : 'Подтвердить'} <span aria-hidden="true">→</span>
+              {isSubmitting ? 'Считаем…' : 'Подтвердить'}
             </button>
           </form>
         </>
@@ -234,11 +242,12 @@ export default function ApplyScreen({
             </div>
           )}
           <button className="submit-button" type="button" onClick={onDone}>
-            В кабинет <span aria-hidden="true">→</span>
+            В кабинет
           </button>
         </>
       )}
     </section>
+    </SwipeBack>
   );
 }
 
@@ -246,14 +255,17 @@ function Field({
   field,
   detail,
   draft,
+  showError,
   onChange,
 }: {
   field: string;
   detail: ProductDetail | null;
   draft: ApplicationDraft;
+  showError: boolean;
   onChange: (draft: ApplicationDraft) => void;
 }) {
   const label = fieldLabel(field);
+  const problem = showError && detail ? fieldError(draft, detail, field) : null;
   if (field === 'profitability_confirmed' || field === 'collateral') {
     const checked = field === 'collateral' ? draft.collateral : draft.profitabilityConfirmed;
     return (
@@ -281,6 +293,7 @@ function Field({
           value={draft.businessPlan}
           onChange={(event) => onChange({ ...draft, businessPlan: event.target.value })}
         />
+        {problem && <span className="field-error">{problem}</span>}
       </label>
     );
   }
@@ -293,6 +306,7 @@ function Field({
           value={draft.purpose}
           onChange={(event) => onChange({ ...draft, purpose: event.target.value })}
         />
+        {problem && <span className="field-error">{problem}</span>}
       </label>
     );
   }
@@ -310,17 +324,35 @@ function Field({
     ? `${formatRub(detail.min_amount_rub)} — ${formatRub(detail.max_amount_rub)}`
     : field === 'loan_term_months' && detail
       ? `${detail.min_term_months}–${detail.max_term_months}`
-      : undefined;
+      : '0';
+  const signed = field === 'profitability_rub';
   return (
     <label className="phone-label">
       {label}
       <input
-        className="apply-input"
-        inputMode="numeric"
+        className={`apply-input${problem ? ' apply-input--invalid' : ''}`}
+        inputMode={signed ? 'text' : 'numeric'}
+        autoComplete="off"
         placeholder={placeholder}
         value={value}
-        onChange={(event) => onChange({ ...draft, [key]: event.target.value })}
+        aria-invalid={Boolean(problem)}
+        onChange={(event) => onChange({ ...draft, [key]: nextNumber(event, field) })}
       />
+      {problem && <span className="field-error">{problem}</span>}
     </label>
   );
+}
+
+function nextNumber(event: ChangeEvent<HTMLInputElement>, field: string): string {
+  const input = event.target;
+  const caret = input.selectionStart ?? input.value.length;
+  const digitsBefore = input.value.slice(0, caret).replace(/\D/g, '').length;
+  const next = field === 'loan_term_months'
+    ? formatTermInput(input.value)
+    : field === 'profitability_rub'
+      ? formatSignedIntegerInput(input.value)
+      : formatIntegerInput(input.value);
+  const place = field === 'loan_term_months' ? Math.min(digitsBefore, next.length) : groupedCaret(next, digitsBefore);
+  requestAnimationFrame(() => input.setSelectionRange(place, place));
+  return next;
 }
