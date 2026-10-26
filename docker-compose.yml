@@ -23,6 +23,19 @@ services:
       timeout: 3s
       retries: 12
 
+  qwen:
+    build: ./ML
+    environment:
+      QWEN_THREADS: ${QWEN_THREADS:-4}
+    volumes:
+      - qwen-models:/models
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8766/health')"]
+      interval: 15s
+      timeout: 5s
+      retries: 40
+      start_period: 120s
+
   backend:
     build: ./backend
     environment:
@@ -31,13 +44,15 @@ services:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-credit}:${POSTGRES_PASSWORD:-credit}@credit-db:5432/${POSTGRES_DB:-credit}
       REDIS_URL: redis://redis:6379/0
       CORS_ORIGINS: ${CORS_ORIGINS:-}
-      ADVISOR_LLM_URL: ${ADVISOR_LLM_URL:-http://host.docker.internal:8766/paraphrase}
+      ADVISOR_LLM_URL: ${ADVISOR_LLM_URL:-http://qwen:8766/paraphrase}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
       credit-db:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      qwen:
         condition: service_healthy
     ports:
       - "${BACKEND_PORT:-8000}:8000"
@@ -58,3 +73,4 @@ services:
 
 volumes:
   credit-db-data:
+  qwen-models:

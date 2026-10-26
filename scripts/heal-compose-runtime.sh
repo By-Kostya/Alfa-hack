@@ -26,6 +26,19 @@ healthy() {
   docker compose exec -T backend python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')" >/dev/null 2>&1
 }
 
+qwen_health() {
+  id=$(docker compose ps -q qwen)
+  if [ -z "$id" ]; then
+    printf '%s' missing
+    return
+  fi
+  docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$id"
+}
+
+if [ "$(qwen_health)" = "unhealthy" ] && cooled qwen; then
+  docker compose up -d --force-recreate --no-deps qwen
+fi
+
 if healthy; then
   exit 0
 fi

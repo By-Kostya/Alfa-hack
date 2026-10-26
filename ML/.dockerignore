@@ -1,0 +1,5 @@
+models
+scripts/paraphrase_qwen.py
+**/__pycache__
+**/.DS_Store
+**/*.safetensors
