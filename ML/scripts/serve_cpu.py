@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import os
 import sys
+import urllib.error
+import urllib.request
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -33,16 +35,78 @@ def threads() -> int:
     return max(1, min(4, count))
 
 
+def megabytes(size: int) -> str:
+    return f"{size / (1024 * 1024):.0f}"
+
+
+def progress_line(done: int, total: int) -> str:
+    if total > 0:
+        return f"Qwen ещё качается, контейнер не готов: {megabytes(done)} / {megabytes(total)} МБ"
+    return f"Qwen ещё качается, контейнер не готов: скачано {megabytes(done)} МБ"
+
+
+def download_model(url: str, dest: Path) -> None:
+    partial = dest.with_name(dest.name + ".partial")
+    have = partial.stat().st_size if partial.is_file() else 0
+    headers = {"User-Agent": "alfa-credit-qwen"}
+    if have:
+        headers["Range"] = f"bytes={have}-"
+    request = urllib.request.Request(url, headers=headers)
+    with urllib.request.urlopen(request, timeout=60) as response:
+        status = getattr(response, "status", 200)
+        if status == 200:
+            have = 0
+            mode = "wb"
+        else:
+            mode = "ab"
+        incoming = int(response.headers.get("Content-Length") or "0")
+        span = response.headers.get("Content-Range") or ""
+        if "/" in span and span.rsplit("/", 1)[-1].isdigit():
+            total = int(span.rsplit("/", 1)[-1])
+        elif status == 206:
+            total = incoming + have
+        else:
+            total = incoming
+        print(progress_line(have, total), flush=True)
+        mark = have
+        with partial.open(mode) as handle:
+            while True:
+                chunk = response.read(1024 * 1024)
+                if not chunk:
+                    break
+                handle.write(chunk)
+                have += len(chunk)
+                if have - mark >= 32 * 1024 * 1024:
+                    mark = have
+                    print(progress_line(have, total), flush=True)
+    partial.replace(dest)
+
+
 def ensure_model() -> Path:
     MODEL_DIR.mkdir(parents=True, exist_ok=True)
     target = MODEL_DIR / FILE
     if target.is_file() and target.stat().st_size > 1_000_000:
+        print("Qwen уже скачана. Гружу модель в память, контейнер ещё не готов.", flush=True)
         return target
-    from huggingface_hub import hf_hub_download
+    from huggingface_hub import hf_hub_url
 
-    print(f"качаю {REPO}/{FILE}, около 1.1 ГБ", flush=True)
-    path = hf_hub_download(repo_id=REPO, filename=FILE, local_dir=str(MODEL_DIR))
-    return Path(path)
+    url = hf_hub_url(REPO, FILE)
+    print("Qwen ещё качается, контейнер не готов. Первый запуск, около 1.1 ГБ.", flush=True)
+    last_error: Exception | None = None
+    for _attempt in range(4):
+        try:
+            download_model(url, target)
+            break
+        except (urllib.error.URLError, TimeoutError, OSError) as exc:
+            last_error = exc
+            print("Qwen ещё качается, контейнер не готов: связь оборвалась, качаю дальше.", flush=True)
+    else:
+        raise RuntimeError("не удалось скачать Qwen") from last_error
+    print(
+        f"Qwen скачана: {megabytes(target.stat().st_size)} МБ. Гружу модель в память, контейнер ещё не готов.",
+        flush=True,
+    )
+    return target
 
 
 def embed_text(text: str) -> list[float]:
@@ -81,6 +145,7 @@ def main() -> None:
         voice.build_index()
     except Exception as exc:
         print(f"карточки не проиндексированы: {exc}", flush=True)
+    print("Qwen готова, контейнер поднят.", flush=True)
     voice.serve(HOST, PORT)
 
 
