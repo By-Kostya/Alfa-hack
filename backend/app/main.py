@@ -75,6 +75,8 @@ def _validation_message(error: Dict[str, Any]) -> str:
     loc = error.get("loc") or ()
     field = loc[-1] if loc else ""
     label = _FIELD_LABELS.get(str(field), "Поле")
+    if kind in {"json_invalid", "json_type"} or "JSON decode" in msg:
+        return "Не удалось прочитать запрос."
     if kind in {"int_parsing", "int_type", "int_from_float", "float_parsing"} or "valid integer" in msg:
         return f"{label}: укажите целое число."
     if kind == "greater_than":

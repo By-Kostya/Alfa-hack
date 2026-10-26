@@ -39,6 +39,20 @@ class MathPipelineTest(unittest.TestCase):
         self.assertEqual(result["limit_rub"], 1_000_000)
         self.assertEqual(result["report"]["flow_basis"], "inferred")
 
+    def test_plan_without_number_is_unknown(self):
+        self.assertIsNone(flow_from_plan("План без выручки."))
+        self.assertIsNone(flow_from_plan("Торговля овощами на рынке, без единой цифры в тексте."))
+        result = run_scoring_pipeline(
+            product="startup",
+            loan_amount_rub=200_000,
+            loan_term_months=6,
+            business_plan="План без выручки.",
+        )
+        self.assertIsNone(result["flow_rub"])
+        self.assertIsNone(result["limit_rub"])
+        self.assertEqual(result["decision"], "unknown")
+        self.assertEqual(result["report"]["flow_basis"], "unknown")
+
     def test_startup_rate_reduces_between_steps(self):
         result = run_scoring_pipeline(
             product="startup",

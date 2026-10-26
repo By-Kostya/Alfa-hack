@@ -70,14 +70,19 @@ function App() {
   const suppressCarouselClickRef = useRef(false);
   const historyDepth = useRef(0);
 
-  function navigateTo(nextRoute: AppRoute, replace = false) {
+  function navigateTo(nextRoute: AppRoute, replace = false, product?: string | null) {
     const normalizedRoute = normalizeRoute(nextRoute);
-    if (window.location.pathname !== normalizedRoute) {
+    const nextUrl = normalizedRoute === ROUTES.apply && product
+      ? `${normalizedRoute}?product=${encodeURIComponent(product)}`
+      : normalizedRoute;
+    const currentUrl = `${window.location.pathname}${window.location.search}`;
+    if (currentUrl !== nextUrl) {
       const method = replace ? 'replaceState' : 'pushState';
-      window.history[method]({}, '', normalizedRoute);
+      window.history[method]({}, '', nextUrl);
       if (!replace) historyDepth.current += 1;
     }
     setRoute(normalizedRoute);
+    if (product !== undefined) setSelectedProduct(product);
   }
 
   function goBack(fallback: AppRoute) {
@@ -175,6 +180,7 @@ function App() {
     const handlePopState = () => {
       historyDepth.current = Math.max(0, historyDepth.current - 1);
       setRoute(normalizeRoute(window.location.pathname));
+      setSelectedProduct(new URLSearchParams(window.location.search).get('product'));
     };
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
@@ -188,8 +194,14 @@ function App() {
     api.getCabinet(token)
       .then((nextCabinet) => {
         setCabinet(nextCabinet);
-        if (initialRoute === ROUTES.dashboard || initialRoute === ROUTES.productChoice) {
+        const product = new URLSearchParams(window.location.search).get('product');
+        const openedApply = initialRoute === ROUTES.apply || (initialRoute === ROUTES.login && Boolean(product));
+        if (openedApply && product) {
+          navigateTo(ROUTES.apply, true, product);
+        } else if (initialRoute === ROUTES.dashboard || initialRoute === ROUTES.productChoice) {
           setRoute(initialRoute);
+        } else if (initialRoute === ROUTES.apply) {
+          navigateTo(ROUTES.dashboard, true);
         } else {
           navigateTo(ROUTES.welcome, true);
         }
@@ -409,9 +421,11 @@ function App() {
         isSubmitting={isSubmitting}
         error={error}
         profiles={demoProfiles}
+        products={publicProducts}
         onPhoneChange={handlePhoneChange}
         onSubmit={handlePhoneSubmit}
         onPick={(profilePhone) => void loginWithPhone(profilePhone)}
+        onOpenProduct={(code) => navigateTo(ROUTES.apply, false, code)}
       />
     );
   }
@@ -528,10 +542,7 @@ function App() {
                                   <button
                                     className="product-slide-cta"
                                     type="button"
-                                    onClick={() => {
-                                      setSelectedProduct(product.code);
-                                      navigateTo(ROUTES.apply);
-                                    }}
+                                    onClick={() => navigateTo(ROUTES.apply, false, product.code)}
                                   >
                                     Выбрать продукт
                                   </button>
@@ -607,7 +618,7 @@ function App() {
                       </div>
                       {cabinet.applications.length ? (
                         <ul className="dashboard-list">
-                          {cabinet.applications.slice(0, 3).map((application) => (
+                          {cabinet.applications.map((application) => (
                             <li key={application.id} className="dashboard-list-item">
                               <button className="dashboard-list-item-button" type="button" onClick={() => void showApplicationDetail(application.id)}>
                                 <span>
@@ -634,7 +645,7 @@ function App() {
                       </div>
                       {cabinet.credits.length ? (
                         <ul className="dashboard-list">
-                          {cabinet.credits.slice(0, 3).map((credit) => (
+                          {cabinet.credits.map((credit) => (
                             <li key={credit.id} className="dashboard-list-item">
                               <button className="dashboard-list-item-button" type="button" onClick={() => void showCreditDetail(credit.id)}>
                                 <span>
@@ -754,7 +765,7 @@ function App() {
                           </div>
                         </>
                       )}
-                      <button className="submit-button" type="button" onClick={() => navigateTo(ROUTES.apply)}>
+                      <button className="submit-button" type="button" onClick={() => navigateTo(ROUTES.apply, false, selectedProduct)}>
                         Заполнить заявку
                       </button>
                     </div>
@@ -887,18 +898,22 @@ function LoginScreen({
   isSubmitting,
   error,
   profiles,
+  products,
   onPhoneChange,
   onSubmit,
   onPick,
+  onOpenProduct,
 }: {
   phone: string;
   isComplete: boolean;
   isSubmitting: boolean;
   error: string;
   profiles: DemoProfile[];
+  products: Product[];
   onPhoneChange: (value: string) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onPick: (phone: string) => void;
+  onOpenProduct: (code: string) => void;
 }) {
   return (
     <main className="welcome-screen login-screen" aria-labelledby="auth-title">
@@ -944,6 +959,22 @@ function LoginScreen({
             </div>
           )}
         </div>
+        {products.length > 0 && (
+          <div className="login-card login-offers">
+            <p className="login-offers-label">Продукты</p>
+            <div className="login-profiles">
+              {products.map((item) => {
+                const product = presentProduct(item);
+                return (
+                  <button type="button" key={product.code} onClick={() => onOpenProduct(product.code)}>
+                    <strong>{product.title}</strong>
+                    <span>{product.ratePct}% · до {formatCompactRub(product.maxAmountRub)} · до {product.maxTermMonths} мес.</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </section>
       <footer className="welcome-footer">
         <span>Альфа-Бизнес</span>

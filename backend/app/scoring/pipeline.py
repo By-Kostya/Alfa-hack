@@ -99,9 +99,7 @@ def flow_from_plan(text: Optional[str]) -> Optional[int]:
     monthly = [value for value in found if 10_000 <= value <= 5_000_000]
     if monthly:
         return max(monthly)
-    if len(text.strip()) >= 40:
-        return 150_000
-    return 20_000
+    return None
 
 
 def run_scoring_pipeline(
@@ -129,8 +127,10 @@ def run_scoring_pipeline(
         flow = profitability_rub
         basis = "form" if flow is not None else "unknown"
         if flow is None and business_plan and business_plan.strip():
-            flow = flow_from_plan(business_plan)
-            basis = "inferred"
+            inferred = flow_from_plan(business_plan)
+            if inferred is not None:
+                flow = inferred
+                basis = "inferred"
         spec = product_by_code(product)
         return evaluate_math_pipeline(
             loan_amount_rub=loan_amount_rub,
