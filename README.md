@@ -5,7 +5,7 @@
 Нужны Docker и Docker Compose. Отдельный `.env` не обязателен. Из корня репозитория:
 
 ```sh
-docker compose up --build --progress plain
+docker compose up --build
 ```
 
 Сайт открывается на http://localhost:8080. API слушает http://localhost:8000, готовность процесса — http://localhost:8000/health. Другие порты задаются `FRONTEND_PORT` и `BACKEND_PORT`.
