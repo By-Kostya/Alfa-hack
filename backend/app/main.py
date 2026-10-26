@@ -12,11 +12,11 @@ from sqlalchemy.orm import Session
 from app import db_models, models
 from app.auth import get_current_user_optional, get_current_user_required
 from app.cache import cache_get, cache_set, redis_ready
-from app.catalog import PRODUCT_LIST, product_by_code
+from app.catalog import PRODUCT_LIST, product_by_code, public_product
 from app.config import settings
 from app.database import Base, SessionLocal, engine, ensure_user_columns, get_db, ping_db
 from app.demo import DEMO_PHONES, public_profiles, seed_demo
-from app.scoring.calculator import calculate_annuity_payment
+from app.scoring.calculator import ANNUAL_RATE, calculate_annuity_payment
 from app.scoring.pipeline import run_scoring_pipeline
 
 logger = logging.getLogger("credit-cabinet")
@@ -60,6 +60,8 @@ if settings.cors_origins:
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     errors = exc.errors()
     msg = errors[0].get("msg", "Проверьте введённые данные.") if errors else "Проверьте введённые данные."
+    if msg.startswith("Value error, "):
+        msg = msg[len("Value error, "):]
     if msg == "Field required":
         msg = "Заполните обязательные поля."
     return JSONResponse(status_code=400, content={"error": msg})
@@ -187,21 +189,22 @@ def health():
 
 @app.get("/api/products")
 def get_products():
-    cached = cache_get("products:v2:list")
+    cached = cache_get("products:v3:list")
     if cached is not None:
         return cached
     payload = {"products": PRODUCT_LIST}
-    cache_set("products:v2:list", payload)
+    cache_set("products:v3:list", payload)
     return payload
 
 
 @app.get("/api/products/{code}")
 def get_product_by_code(code: str):
-    cache_key = f"products:v2:{code}"
+    cache_key = f"products:v3:{code}"
     cached = cache_get(cache_key)
     if cached is not None:
         return cached
-    payload = product_by_code(code)
+    spec = product_by_code(code)
+    payload = None if spec is None else public_product(spec, with_fields=True)
     if payload is None:
         raise HTTPException(status_code=404, detail={"error": "Неизвестный продукт."})
     cache_set(cache_key, payload)
@@ -234,7 +237,12 @@ def execute_scoring_and_create_credit(app_obj: db_models.Application, db: Sessio
     app_obj.report = scoring_res["report"]
 
     if app_obj.decision in ["approve", "reduced"] and app_obj.limit_rub and app_obj.limit_rub > 0:
-        credit_payment = calculate_annuity_payment(app_obj.limit_rub, app_obj.loan_term_months)
+        spec = product_by_code(app_obj.product)
+        credit_payment = calculate_annuity_payment(
+            app_obj.limit_rub,
+            app_obj.loan_term_months,
+            spec["annual_rate"] if spec else ANNUAL_RATE,
+        )
         new_credit = db_models.Credit(
             application_id=app_obj.id,
             user_id=app_obj.user_id,

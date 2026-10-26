@@ -1,4 +1,4 @@
-from app.catalog import PRODUCT_CODES
+from app.catalog import PRODUCT_CODES, product_by_code
 from app.db_models import Application, Credit, User
 from app.scoring.calculator import calculate_annuity_payment
 
@@ -114,23 +114,36 @@ def seed_demo(db) -> None:
     for application, credit in records:
         if application["product"] not in PRODUCT_CODES:
             continue
-        if db.get(Application, application["id"]) is None:
-            db.add(Application(**application))
-        if credit is not None and db.get(Credit, credit["id"]) is None:
-            db.add(Credit(**credit))
+        _upsert(db, Application, application)
+        if credit is not None:
+            _upsert(db, Credit, credit)
     db.commit()
+
+
+def _upsert(db, model, payload: dict) -> None:
+    row = db.get(model, payload["id"])
+    if row is None:
+        db.add(model(**payload))
+        return
+    for key, value in payload.items():
+        if key != "id":
+            setattr(row, key, value)
+
+
+def _payment(product: str, amount_rub: int, term_months: int) -> int:
+    return calculate_annuity_payment(amount_rub, term_months, product_by_code(product)["annual_rate"])
 
 
 def _history(user_id):
     anna = user_id("user-demo-anna")
     ilya = user_id("user-demo-ilya")
     maria = user_id("user-demo-maria")
-    anna_payment = calculate_annuity_payment(800_000, 12)
-    ilya_request_payment = calculate_annuity_payment(800_000, 18)
-    ilya_credit_payment = calculate_annuity_payment(300_000, 18)
-    ilya_reject_payment = calculate_annuity_payment(2_000_000, 12)
-    maria_overdraft_payment = calculate_annuity_payment(2_000_000, 12)
-    maria_contract_payment = calculate_annuity_payment(800_000, 24)
+    anna_payment = _payment("working_capital", 800_000, 12)
+    ilya_request_payment = _payment("startup", 800_000, 18)
+    ilya_credit_payment = _payment("startup", 500_000, 18)
+    ilya_reject_payment = _payment("equipment", 2_000_000, 12)
+    maria_overdraft_payment = _payment("overdraft", 1_500_000, 12)
+    maria_contract_payment = _payment("contract", 1_000_000, 12)
 
     return [
         (
@@ -189,7 +202,7 @@ def _history(user_id):
                 "fallback": True,
                 "monthly_payment_rub": ilya_request_payment,
                 "flow_rub": 40_000,
-                "limit_rub": 300_000,
+                "limit_rub": 500_000,
                 "decision": "reduced",
                 "credit_id": "credit-demo-ilya-start",
                 "report": _report("inferred", ""),
@@ -200,7 +213,7 @@ def _history(user_id):
                 "user_id": ilya,
                 "product": "startup",
                 "status": "active",
-                "amount_rub": 300_000,
+                "amount_rub": 500_000,
                 "loan_term_months": 18,
                 "monthly_payment_rub": ilya_credit_payment,
                 "purpose": "",
@@ -241,7 +254,7 @@ def _history(user_id):
                 "product": "overdraft",
                 "phone": "79001000003",
                 "purpose": "",
-                "loan_amount_rub": 2_000_000,
+                "loan_amount_rub": 1_500_000,
                 "loan_term_months": 12,
                 "profitability_rub": 900_000,
                 "profitability_confirmed": True,
@@ -252,7 +265,7 @@ def _history(user_id):
                 "fallback": True,
                 "monthly_payment_rub": maria_overdraft_payment,
                 "flow_rub": 900_000,
-                "limit_rub": 2_000_000,
+                "limit_rub": 1_500_000,
                 "decision": "approve",
                 "credit_id": "credit-demo-maria-over",
                 "report": _report("form", ""),
@@ -263,7 +276,7 @@ def _history(user_id):
                 "user_id": maria,
                 "product": "overdraft",
                 "status": "active",
-                "amount_rub": 2_000_000,
+                "amount_rub": 1_500_000,
                 "loan_term_months": 12,
                 "monthly_payment_rub": maria_overdraft_payment,
                 "purpose": "",
@@ -278,8 +291,8 @@ def _history(user_id):
                 "product": "contract",
                 "phone": "79001000003",
                 "purpose": "Поставка оборудования",
-                "loan_amount_rub": 800_000,
-                "loan_term_months": 24,
+                "loan_amount_rub": 1_000_000,
+                "loan_term_months": 12,
                 "profitability_rub": 500_000,
                 "profitability_confirmed": True,
                 "collateral": False,
@@ -289,7 +302,7 @@ def _history(user_id):
                 "fallback": True,
                 "monthly_payment_rub": maria_contract_payment,
                 "flow_rub": 500_000,
-                "limit_rub": 800_000,
+                "limit_rub": 1_000_000,
                 "decision": "approve",
                 "credit_id": "credit-demo-maria-contract",
                 "report": _report("form", ""),
@@ -300,8 +313,8 @@ def _history(user_id):
                 "user_id": maria,
                 "product": "contract",
                 "status": "active",
-                "amount_rub": 800_000,
-                "loan_term_months": 24,
+                "amount_rub": 1_000_000,
+                "loan_term_months": 12,
                 "monthly_payment_rub": maria_contract_payment,
                 "purpose": "Поставка оборудования",
                 "created_at": "2026-10-10T11:20:00+00:00",

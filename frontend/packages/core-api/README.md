@@ -14,8 +14,8 @@ HTTP-клиент кабинета. Контракт: `docs/contract.md`. React 
 ## Кабинет и заявки
 
 - `getCabinet(token)` — `GET /cabinet`.
-- `getProducts()` — `GET /products`, элементы `{ code, title }`.
-- `getProductDetail(code)` — `GET /products/{code}`, плюс `fields`.
+- `getProducts()` — `GET /products`. У каждого продукта свои `annual_rate_pct`, сумма и срок.
+- `getProductDetail(code)` — `GET /products/{code}`, те же условия плюс `fields`.
 - `getApplications(token)`, `getApplicationDetail(token, id)`.
 - `createApplication(token, body)` — `POST /applications`. С токеном ответ — заявка-черновик. Без токена в теле есть `phone`, ответ — `{ token, user, application }`. Отличить его можно через `isLinkApplication`.
 - `confirmApplication(token, id, { phone })` — `POST /applications/{id}/confirm`.

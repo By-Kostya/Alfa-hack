@@ -40,6 +40,11 @@ export type AuthSession = {
 export type Product = {
   code: string;
   title: string;
+  annual_rate_pct: number;
+  min_amount_rub: number;
+  max_amount_rub: number;
+  min_term_months: number;
+  max_term_months: number;
 };
 
 export type ProductDetail = Product & {

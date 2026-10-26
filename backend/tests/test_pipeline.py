@@ -1,5 +1,9 @@
 import unittest
 
+from pydantic import ValidationError
+
+from app.catalog import product_by_code
+from app.models import ApplicationCreateRequest
 from app.scoring.pipeline import evaluate_math_pipeline, flow_from_plan, run_scoring_pipeline
 
 
@@ -26,13 +30,49 @@ class MathPipelineTest(unittest.TestCase):
         self.assertEqual(flow_from_plan("Выручка 180000 руб. в месяц"), 180_000)
         result = run_scoring_pipeline(
             product="startup",
-            loan_amount_rub=800_000,
+            loan_amount_rub=1_000_000,
             loan_term_months=12,
             business_plan="Выручка 180000 руб. в месяц, кафе у метро.",
         )
         self.assertEqual(result["decision"], "approve")
-        self.assertEqual(result["limit_rub"], 800_000)
+        self.assertEqual(result["monthly_payment_rub"], 94_560)
+        self.assertEqual(result["limit_rub"], 1_000_000)
         self.assertEqual(result["report"]["flow_basis"], "inferred")
+
+    def test_startup_rate_reduces_between_steps(self):
+        result = run_scoring_pipeline(
+            product="startup",
+            loan_amount_rub=800_000,
+            loan_term_months=18,
+            profitability_rub=40_000,
+        )
+        self.assertEqual(result["monthly_payment_rub"], 53_362)
+        self.assertEqual(result["limit_rub"], 500_000)
+        self.assertEqual(result["decision"], "reduced")
+
+    def test_offers_differ_and_cap_the_request(self):
+        equipment = product_by_code("equipment")
+        overdraft = product_by_code("overdraft")
+        self.assertEqual(equipment["max_term_months"], 60)
+        self.assertEqual(equipment["annual_rate_pct"], 16)
+        self.assertEqual(equipment["max_amount_rub"], 5_000_000)
+        self.assertLess(overdraft["max_term_months"], equipment["max_term_months"])
+        self.assertNotEqual(overdraft["annual_rate_pct"], equipment["annual_rate_pct"])
+        self.assertLess(overdraft["max_amount_rub"], equipment["max_amount_rub"])
+        ApplicationCreateRequest(
+            product="equipment",
+            loan_amount_rub=5_000_000,
+            loan_term_months=60,
+            purpose="Станок",
+            profitability_rub=500_000,
+        )
+        with self.assertRaises(ValidationError):
+            ApplicationCreateRequest(
+                product="overdraft",
+                loan_amount_rub=100_000,
+                loan_term_months=24,
+                profitability_rub=50_000,
+            )
 
     def test_reject_non_positive_flow(self):
         result = evaluate_math_pipeline(800_000, 12, 0)

@@ -1,9 +1,9 @@
 import re
 from typing import Any, Dict, List, Optional, Union
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
-from app.catalog import PRODUCT_CODES
+from app.catalog import PRODUCT_CODES, offer_error
 
 
 # --- Базовая ошибка по контракту ---
@@ -43,11 +43,14 @@ class SessionResponse(BaseModel):
 class ProductItem(BaseModel):
     code: str
     title: str
+    annual_rate_pct: int
+    min_amount_rub: int
+    max_amount_rub: int
+    min_term_months: int
+    max_term_months: int
 
 
-class ProductDetail(BaseModel):
-    code: str
-    title: str
+class ProductDetail(ProductItem):
     fields: List[str]
 
 
@@ -55,7 +58,7 @@ class ProductDetail(BaseModel):
 class ApplicationCreateRequest(BaseModel):
     product: str
     loan_amount_rub: int = Field(..., gt=0)
-    loan_term_months: int = Field(..., ge=1, le=360)
+    loan_term_months: int = Field(..., ge=1)
     phone: Optional[str] = None
     purpose: Optional[str] = ""
     profitability_rub: Optional[int] = None
@@ -86,6 +89,13 @@ class ApplicationCreateRequest(BaseModel):
         if v is not None and not 0 <= v <= 1000:
             raise ValueError("Рейтинг должен быть от 0 до 1000.")
         return v
+
+    @model_validator(mode="after")
+    def check_offer(self):
+        message = offer_error(self.product, self.loan_amount_rub, self.loan_term_months)
+        if message:
+            raise ValueError(message)
+        return self
 
 
 class ApplicationConfirmRequest(BaseModel):

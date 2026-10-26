@@ -83,7 +83,7 @@ export default function ApplyScreen({
   async function submitFields(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!detail || !productCode || isSubmitting) return;
-    const problem = validateDraft(draft, detail.fields);
+    const problem = validateDraft(draft, detail);
     if (problem) {
       setError(problem);
       return;
@@ -149,7 +149,10 @@ export default function ApplyScreen({
         <div className="product-choice-list">
           {products.map((product) => (
             <button className="product-choice-card" type="button" key={product.code} onClick={() => onPickProduct(product.code)}>
-              <span className="product-choice-copy"><strong>{product.title}</strong></span>
+              <span className="product-choice-copy">
+                <strong>{product.title}</strong>
+                <span>{product.annual_rate_pct}% · {formatRub(product.min_amount_rub)} — {formatRub(product.max_amount_rub)} · {product.min_term_months}–{product.max_term_months} мес.</span>
+              </span>
             </button>
           ))}
         </div>
@@ -166,11 +169,17 @@ export default function ApplyScreen({
       {step === 'fields' && (
         <>
           <h1 id="auth-title">Условия кредита</h1>
+          {detail && (
+            <p className="intro">
+              Ставка {detail.annual_rate_pct}% · {formatRub(detail.min_amount_rub)} — {formatRub(detail.max_amount_rub)} · {detail.min_term_months}–{detail.max_term_months} мес.
+            </p>
+          )}
           <form className="apply-form" onSubmit={submitFields}>
             {(detail?.fields ?? []).map((field) => (
               <Field
                 key={field}
                 field={field}
+                detail={detail}
                 draft={draft}
                 onChange={(next) => {
                   setDraft(next);
@@ -235,10 +244,12 @@ export default function ApplyScreen({
 
 function Field({
   field,
+  detail,
   draft,
   onChange,
 }: {
   field: string;
+  detail: ProductDetail | null;
   draft: ApplicationDraft;
   onChange: (draft: ApplicationDraft) => void;
 }) {
@@ -295,12 +306,18 @@ function Field({
     : field === 'loan_term_months'
       ? 'loanTermMonths'
       : 'profitabilityRub';
+  const placeholder = field === 'loan_amount_rub' && detail
+    ? `${formatRub(detail.min_amount_rub)} — ${formatRub(detail.max_amount_rub)}`
+    : field === 'loan_term_months' && detail
+      ? `${detail.min_term_months}–${detail.max_term_months}`
+      : undefined;
   return (
     <label className="phone-label">
       {label}
       <input
         className="apply-input"
         inputMode="numeric"
+        placeholder={placeholder}
         value={value}
         onChange={(event) => onChange({ ...draft, [key]: event.target.value })}
       />

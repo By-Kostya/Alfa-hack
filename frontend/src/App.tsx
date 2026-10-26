@@ -680,7 +680,9 @@ function App() {
                     <p className="intro">Расскажите, что хотите сделать. Подберём подходящий вариант.</p>
                   </div>
                   <div className="product-choice-list">
-                    {cabinet.products.map((product, index) => (
+                    {cabinet.products.map((product, index) => {
+                      const card = presentProduct(product);
+                      return (
                       <button
                         className={`product-choice-card${selectedProduct === product.code ? ' product-choice-card--selected' : ''}`}
                         type="button"
@@ -690,14 +692,16 @@ function App() {
                       >
                         <span className="product-choice-index" aria-hidden="true">{String(index + 1).padStart(2, '0')}</span>
                         <span className="product-choice-copy">
-                          <strong>{getProductTitle(cabinet, product.code)}</strong>
-                          <span>{presentProduct(product).description}</span>
+                          <strong>{card.title}</strong>
+                          <span>{card.description}</span>
+                          <span>{card.ratePct}% · до {formatCompactRub(card.maxAmountRub)} · до {card.maxTermMonths} мес.</span>
                         </span>
                         <span className="product-choice-check" aria-hidden="true">
                           {selectedProduct === product.code ? '✓' : '→'}
                         </span>
                       </button>
-                    ))}
+                      );
+                    })}
                   </div>
                   {selectedProduct && (
                     <div className="selected-product" role="status">
@@ -706,6 +710,9 @@ function App() {
                       {productDetailError && <span className="request-error">{productDetailError}</span>}
                       {selectedProductDetail && (
                         <>
+                          <span>
+                            Ставка {selectedProductDetail.annual_rate_pct}%, сумма {formatRub(selectedProductDetail.min_amount_rub)} — {formatRub(selectedProductDetail.max_amount_rub)}, срок {selectedProductDetail.min_term_months}–{selectedProductDetail.max_term_months} мес.
+                          </span>
                           <span>На следующем шаге понадобятся:</span>
                           <div className="product-requirements">
                             {selectedProductDetail.fields.map((field) => (

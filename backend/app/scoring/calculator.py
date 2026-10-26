@@ -1,11 +1,14 @@
 from decimal import Decimal, ROUND_HALF_UP
 
-ANNUAL_RATE = Decimal("0.20")  # 20% годовых
+ANNUAL_RATE = Decimal("0.20")  # запасная ставка, если у продукта своей нет
 MONTHS_IN_YEAR = Decimal("12")
-MONTHLY_RATE = ANNUAL_RATE / MONTHS_IN_YEAR
 
 
-def calculate_annuity_payment(amount_rub: int, term_months: int) -> int:
+def calculate_annuity_payment(
+    amount_rub: int,
+    term_months: int,
+    annual_rate: Decimal = ANNUAL_RATE,
+) -> int:
     """
     Считает ежемесячный аннуитетный платеж по формуле:
     A = S * (i * (1 + i)^n) / ((1 + i)^n - 1)
@@ -16,7 +19,7 @@ def calculate_annuity_payment(amount_rub: int, term_months: int) -> int:
 
     s = Decimal(str(amount_rub))
     n = Decimal(str(term_months))
-    i = MONTHLY_RATE
+    i = annual_rate / MONTHS_IN_YEAR
 
     # (1 + i)^n
     compound_interest = (Decimal("1") + i) ** n

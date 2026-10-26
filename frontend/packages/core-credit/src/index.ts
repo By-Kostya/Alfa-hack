@@ -1,7 +1,4 @@
-import type { ApplicationCreateRequest, Product } from '@alfa-hack/core-api';
-
-export const ANNUAL_RATE_PCT = 20;
-export const MAX_LIMIT_RUB = 2_000_000;
+import type { ApplicationCreateRequest, Product, ProductDetail } from '@alfa-hack/core-api';
 
 const PRODUCT_COPY: Record<string, { badge: string; description: string }> = {
   working_capital: {
@@ -45,11 +42,11 @@ export function presentProduct(product: Product): ProductCard {
   return {
     ...product,
     ...copy,
-    ratePct: ANNUAL_RATE_PCT,
-    minAmountRub: 300_000,
-    maxAmountRub: MAX_LIMIT_RUB,
-    minTermMonths: 1,
-    maxTermMonths: 360,
+    ratePct: product.annual_rate_pct,
+    minAmountRub: product.min_amount_rub,
+    maxAmountRub: product.max_amount_rub,
+    minTermMonths: product.min_term_months,
+    maxTermMonths: product.max_term_months,
   };
 }
 
@@ -148,14 +145,19 @@ function integer(value: string): number | null {
   return Number(trimmed);
 }
 
-export function validateDraft(draft: ApplicationDraft, fields: string[]): string | null {
+export function validateDraft(draft: ApplicationDraft, detail: ProductDetail): string | null {
+  const fields = detail.fields;
   if (fields.includes('loan_amount_rub')) {
     const amount = integer(draft.loanAmountRub);
-    if (amount === null || amount <= 0) return 'Укажите сумму больше нуля.';
+    if (amount === null || amount < detail.min_amount_rub || amount > detail.max_amount_rub) {
+      return `Сумма — от ${formatRub(detail.min_amount_rub)} до ${formatRub(detail.max_amount_rub)}.`;
+    }
   }
   if (fields.includes('loan_term_months')) {
     const term = integer(draft.loanTermMonths);
-    if (term === null || term < 1 || term > 360) return 'Срок — от 1 до 360 месяцев.';
+    if (term === null || term < detail.min_term_months || term > detail.max_term_months) {
+      return `Срок — от ${detail.min_term_months} до ${detail.max_term_months} месяцев.`;
+    }
   }
   if (fields.includes('purpose') && !draft.purpose.trim()) return 'Укажите цель кредита.';
   if (fields.includes('profitability_rub') && integer(draft.profitabilityRub) === null) {

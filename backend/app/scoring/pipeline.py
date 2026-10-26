@@ -1,7 +1,9 @@
 import re
+from decimal import Decimal
 from typing import Any, Dict, Optional
 
-from app.scoring.calculator import calculate_annuity_payment
+from app.catalog import product_by_code
+from app.scoring.calculator import ANNUAL_RATE, calculate_annuity_payment
 
 LIMIT_STEPS = [2_000_000, 800_000, 300_000]
 
@@ -11,12 +13,15 @@ def evaluate_math_pipeline(
     loan_term_months: int,
     flow_rub: Optional[int],
     flow_basis: str = "form",
+    annual_rate: Decimal = ANNUAL_RATE,
+    limit_steps: Optional[list] = None,
 ) -> Dict[str, Any]:
     """
     Математический фолбек по правилам контракта.
     """
     # 1. Аннуитет запрошенной суммы
-    monthly_payment = calculate_annuity_payment(loan_amount_rub, loan_term_months)
+    steps = LIMIT_STEPS if limit_steps is None else limit_steps
+    monthly_payment = calculate_annuity_payment(loan_amount_rub, loan_term_months, annual_rate)
 
     # 2. Если потока нет вообще
     if flow_rub is None:
@@ -52,9 +57,9 @@ def evaluate_math_pipeline(
 
     # 4. Поиск наибольшей подходящей ступени
     limit_rub = 0
-    for step in LIMIT_STEPS:
+    for step in steps:
         if step <= loan_amount_rub:
-            step_payment = calculate_annuity_payment(step, loan_term_months)
+            step_payment = calculate_annuity_payment(step, loan_term_months, annual_rate)
             if step_payment <= flow_rub:
                 limit_rub = step
                 break
@@ -126,9 +131,12 @@ def run_scoring_pipeline(
         if flow is None and business_plan and business_plan.strip():
             flow = flow_from_plan(business_plan)
             basis = "inferred"
+        spec = product_by_code(product)
         return evaluate_math_pipeline(
             loan_amount_rub=loan_amount_rub,
             loan_term_months=loan_term_months,
             flow_rub=flow,
             flow_basis=basis,
+            annual_rate=spec["annual_rate"] if spec else ANNUAL_RATE,
+            limit_steps=spec["limit_steps"] if spec else LIMIT_STEPS,
         )
