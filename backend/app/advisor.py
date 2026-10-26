@@ -69,6 +69,8 @@ def _brief_numbers(brief: dict) -> set[int]:
 
 
 def keeps_the_question(draft: str, text: str) -> bool:
+    if "не найден" in draft.lower() and "не найден" not in text.lower():
+        return False
     if "?" not in draft:
         return True
     if "?" not in text:
@@ -454,7 +456,7 @@ def template_reply(brief: dict) -> str:
     elif kind == "ask_phone":
         body = f"«{brief['product_title']}» можно оформлять. Какой номер записать? Подойдёт только готовый профиль."
     elif kind == "phone_unknown":
-        body = "Такого номера нет среди готовых профилей. Какой номер записать?"
+        body = "Номер не найден. Какой номер записать?"
     elif kind == "ask_sms":
         body = "Номер записал. СМС не отправляем. Какой код пришёл? Для демо напишите 0000."
     elif kind == "sms_rejected":

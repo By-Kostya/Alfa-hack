@@ -295,6 +295,7 @@ export function createApiClient(baseUrl?: string) {
           business_plan: turn.business_plan ?? null,
           phone: turn.phone ?? null,
           text: turn.text ?? '',
+          history: turn.history ?? [],
         },
       });
     },

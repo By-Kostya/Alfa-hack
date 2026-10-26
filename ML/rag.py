@@ -153,6 +153,30 @@ def supporting_sentences(question: str, chunks: list[dict], limit: int = 2) -> s
     return " ".join(picked)
 
 
+def offer_numbers(question: str, chunks: list[dict]) -> str:
+    asked = question.lower()
+    if "ставк" in asked:
+        markers = ("ставк", "сумма от")
+    elif "срок" in asked and "лет" not in asked:
+        markers = ("срок",)
+    else:
+        return ""
+    picked: list[str] = []
+    specific = [chunk for chunk in chunks if not chunk["source"].startswith("00-")]
+    for chunk in (specific[:1] or chunks[:1]):
+        plain = re.sub(r"^#+\s+.*$", "", chunk["text"], flags=re.M)
+        for sentence in re.split(r"(?<=[.!?])\s+", plain):
+            cleaned = sentence.strip()
+            if len(cleaned) < 12:
+                continue
+            lowered = cleaned.lower()
+            if any(marker in lowered for marker in markers) and cleaned not in picked:
+                picked.append(cleaned)
+            if len(picked) >= 3:
+                return " ".join(picked)
+    return " ".join(picked)
+
+
 _DECLINE = (
     "не могу", "не подскаж", "не отвеч", "не знаю", "нет информац", "нет данных",
     "не наш", "этого нет", "такого нет", "нет сведен", "не относ", "не про",
@@ -174,7 +198,7 @@ def mentions_question(answer: str, question: str) -> bool:
 
 _GENERIC = {
     "кредит", "ставк", "срок", "сумм", "рубл", "месяц", "годов",
-    "анкет", "продукт", "выручк", "решен", "счита",
+    "анкет", "продукт", "выручк", "решен", "счита", "деньг",
 }
 
 
@@ -209,8 +233,15 @@ def focus_product(chunks: list[dict], prior_text: str) -> list[dict]:
     if not anchor:
         return chunks
     specific = [chunk for chunk in chunks if not chunk["source"].startswith("00-")]
-    pointed = [chunk for chunk in specific if shared_topics(anchor, chunk["stems"])]
-    return pointed or specific or chunks
+    scored = [
+        (shared_topics(anchor, chunk["stems"]), chunk)
+        for chunk in specific
+    ]
+    pointed = [(score, chunk) for score, chunk in scored if score]
+    if not pointed:
+        return specific or chunks
+    best = max(score for score, _chunk in pointed)
+    return [chunk for score, chunk in pointed if score == best]
 
 
 def card_facts(chunk: dict, limit: int = 6) -> str:

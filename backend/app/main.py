@@ -239,6 +239,8 @@ def advise_product(body: models.AdvisorTurnRequest, db: Session = Depends(get_db
         body.phone,
         [{"role": item.role, "text": item.text} for item in body.history],
     )
+    if result.get("brief", {}).get("say") == "phone_unknown":
+        raise HTTPException(status_code=401, detail={"error": "Номер не найден."})
     draft = result.pop("file", None)
     result["token"] = None
     result["saved"] = None

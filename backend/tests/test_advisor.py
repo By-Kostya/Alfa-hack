@@ -103,6 +103,7 @@ class AdvisorMathTest(unittest.TestCase):
         )
         self.assertIsNone(unknown["answers"]["phone"])
         self.assertEqual(unknown["brief"]["say"], "phone_unknown")
+        self.assertIn("Номер не найден.", unknown["reply"])
         known = advise(
             unknown["answers"]["goal"],
             unknown["answers"]["amount_rub"],

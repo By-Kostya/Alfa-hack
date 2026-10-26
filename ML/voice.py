@@ -20,6 +20,7 @@ from rag import (
     grounded,
     load_chunks,
     mentions_question,
+    offer_numbers,
     rank,
     refers_to_prior,
     supporting_sentences,
@@ -155,7 +156,7 @@ def answer(question: str, history: list[dict] | None = None) -> dict:
     if wants_more(question):
         support = " ".join(card_facts(chunk) for chunk in found[:1])
     else:
-        support = supporting_sentences(query, found)
+        support = offer_numbers(question, found) or supporting_sentences(question, found)
     text = complete(
         ANSWER_INSTRUCTION,
         dialogue(turns, question, f"Фрагменты:\n{context}"),
