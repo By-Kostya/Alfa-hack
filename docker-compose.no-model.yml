@@ -1,0 +1,21 @@
+# Стенд без Qwen. Те же тома и тот же проект, модель не стартует.
+# Заявки и скачанные веса остаются.
+#
+#   docker compose stop qwen
+#   docker compose -f docker-compose.yml -f docker-compose.no-model.yml up -d --build
+#
+# Обычный стенд с моделью — по-прежнему `docker compose up --build`.
+
+services:
+  qwen:
+    profiles:
+      - model
+
+  backend:
+    environment:
+      ADVISOR_LLM_URL: ""
+    depends_on: !override
+      credit-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy

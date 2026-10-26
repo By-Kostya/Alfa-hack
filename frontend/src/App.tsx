@@ -470,6 +470,7 @@ function App() {
                   <div><dt>Телефон</dt><dd>{cabinet.user.phone}</dd></div>
                   {cabinet.user.email && <div><dt>Почта</dt><dd>{cabinet.user.email}</dd></div>}
                 </dl>
+                <button className="topbar-account-logout" type="button" onClick={() => void handleLogout()}>Выйти</button>
               </div>
             </details>
           )}
@@ -680,7 +681,6 @@ function App() {
                       )}
                     </section>
                   </div>
-                  <button className="logout-button" type="button" onClick={handleLogout}>Выйти</button>
                   {(cabinetDetail || isLoadingCabinetDetail || cabinetDetailError) && (
                     <div className="detail-backdrop" role="presentation" onClick={closeCabinetDetail}>
                       <section

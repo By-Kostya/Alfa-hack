@@ -129,37 +129,39 @@ export default function AdvisorScreen({
         {isSending && <p className="advisor-line advisor-line--assistant advisor-line--pending">Секунду…</p>}
         {error && <p className="request-error" role="alert">{error}</p>}
       </div>
-      {product && (
-        <section className="advisor-offer">
-          <p>{product.title}</p>
-          <strong>{product.annual_rate_pct}%</strong>
-          <span>до {formatCompactRub(product.max_amount_rub)} · {product.min_term_months}–{product.max_term_months} мес.</span>
-          {saved && (
-            <button className="submit-button" type="button" onClick={onCabinet}>Открыть кабинет</button>
-          )}
-        </section>
-      )}
-      {choices.length > 0 && !saved && (
-        <div className="advisor-choices">
-          {choices.map((choice) => (
-            <button key={choice.id} type="button" disabled={isSending} onClick={() => void ask(choice.id, answers, true, choice.label)}>
-              {choice.label}
-            </button>
-          ))}
-        </div>
-      )}
-      {!saved && (
-        <form className="advisor-form" onSubmit={submit}>
-          <input
-            value={draft}
-            onChange={(event) => setDraft(event.target.value)}
-            placeholder="Напишите сообщение"
-            aria-label="Сообщение"
-            disabled={isSending}
-          />
-          <button type="submit" disabled={isSending || !draft.trim()}>Отправить</button>
-        </form>
-      )}
+      <footer className="advisor-dock">
+        {product && (
+          <section className="advisor-offer">
+            <p>{product.title}</p>
+            <strong>{product.annual_rate_pct}%</strong>
+            <span>до {formatCompactRub(product.max_amount_rub)} · {product.min_term_months}–{product.max_term_months} мес.</span>
+            {saved && (
+              <button className="submit-button" type="button" onClick={onCabinet}>Открыть кабинет</button>
+            )}
+          </section>
+        )}
+        {choices.length > 0 && !saved && (
+          <div className="advisor-choices">
+            {choices.map((choice) => (
+              <button key={choice.id} type="button" disabled={isSending} onClick={() => void ask(choice.id, answers, true, choice.label)}>
+                {choice.label}
+              </button>
+            ))}
+          </div>
+        )}
+        {!saved && (
+          <form className="advisor-form" onSubmit={submit}>
+            <input
+              value={draft}
+              onChange={(event) => setDraft(event.target.value)}
+              placeholder="Напишите сообщение"
+              aria-label="Сообщение"
+              disabled={isSending}
+            />
+            <button type="submit" disabled={isSending || !draft.trim()}>Отправить</button>
+          </form>
+        )}
+      </footer>
     </main>
   );
 }

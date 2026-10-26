@@ -122,6 +122,8 @@ input:focus-visible {
 }
 
 .topbar-account-panel > strong { display: block; margin-bottom: 18px; font-size: 20px; letter-spacing: -0.055em; }
+.topbar-account-logout { display: block; width: 100%; margin-top: 14px; padding: 14px 0 0; border: 0; border-top: 1px solid #efeeec; color: var(--alfa-red); background: transparent; cursor: pointer; font: inherit; font-size: 14px; font-weight: 600; text-align: left; }
+.topbar-account-logout:hover { color: var(--alfa-red-dark); }
 .topbar-account-panel dl { display: grid; gap: 0; margin: 0; border-top: 1px solid #efeeec; }
 .topbar-account-panel dl > div { display: grid; gap: 5px; padding: 11px 0; border-bottom: 1px solid #efeeec; }
 .topbar-account-panel dt { color: #777; font-family: Arial, sans-serif; font-size: 10px; }
@@ -343,7 +345,6 @@ h1 {
 }
 
 .change-phone-button:hover,
-.logout-button:hover,
 .back-button:hover { color: var(--alfa-red); }
 
 .brand-note {
@@ -486,8 +487,6 @@ h1 {
 .dashboard-list-meta { text-align: right; }
 .dashboard-list-meta strong { white-space: nowrap; }
 .dashboard-empty { margin: 0; padding: 16px 0 0; border-top: 1px solid #efeeec; color: #777; font-family: Arial, sans-serif; font-size: 12px; }
-
-.logout-button { margin-top: 16px; padding: 10px 0; border: 0; color: #5d5d5d; background: transparent; cursor: pointer; font-size: 12px; text-decoration: underline; text-underline-offset: 4px; }
 
 .product-choice { max-width: 880px; }
 .back-button { margin: 0 0 34px; padding: 8px 0; border: 0; color: #666; background: transparent; cursor: pointer; font-size: 12px; }
@@ -636,8 +635,9 @@ h1 {
 .login-advisor { display: flex; width: min(100%, 480px); min-height: 54px; align-items: center; justify-content: center; margin: 8px 0 28px; padding: 0 18px; border: 0; border-radius: 999px; color: var(--alfa-red); background: #fff; cursor: pointer; font: inherit; font-size: 16px; font-weight: 700; }
 .login-register-label { margin: 0 0 12px; color: #777; font-family: Arial, sans-serif; font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
 
-.advisor-screen { display: flex; min-height: 100vh; min-height: 100svh; flex-direction: column; background: var(--paper); color: var(--ink); }
-.advisor-topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 18px; color: #fff; background: var(--alfa-red); }
+.advisor-screen { display: flex; height: 100vh; height: 100svh; overflow: hidden; flex-direction: column; background: var(--paper); color: var(--ink); }
+.advisor-topbar { display: flex; flex: 0 0 auto; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 18px; color: #fff; background: var(--alfa-red); }
+.advisor-dock { flex: 0 0 auto; background: var(--paper); }
 .advisor-topbar strong { font-size: 16px; letter-spacing: -.03em; }
 .advisor-back, .advisor-restart { border: 0; color: #fff; background: transparent; cursor: pointer; font: inherit; font-size: 14px; }
 .advisor-thread { display: flex; min-height: 0; flex: 1; flex-direction: column; gap: 10px; overflow: auto; padding: 18px 16px 8px; }

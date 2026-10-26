@@ -115,17 +115,23 @@ def prior_user_lines(history: list[dict]) -> list[str]:
     return [turn["text"] for turn in history if turn["role"] == "user"][-2:]
 
 
+def last_assistant_line(history: list[dict]) -> list[str]:
+    return [turn["text"] for turn in history if turn["role"] == "assistant"][-1:]
+
+
 def find_cards(question: str, history: list[dict]) -> tuple[str, list[dict]]:
     prior = prior_user_lines(history)
+    spoken = last_assistant_line(history) if refers_to_prior(question) else []
     query = question
-    if refers_to_prior(question) and prior:
-        query = "\n".join([*prior, question])
+    if refers_to_prior(question) and (prior or spoken):
+        query = "\n".join([*prior, *spoken, question])
     found = rank(query, CHUNKS, VECTORS, apply_center(encode(query), CENTER))
     if not found and query != question:
         query = question
         found = rank(query, CHUNKS, VECTORS, apply_center(encode(query), CENTER))
-    if prior:
-        found = focus_product(found, "\n".join(prior))
+    anchor = "\n".join([*prior, *spoken])
+    if anchor.strip():
+        found = focus_product(found, anchor)
     return query, found
 
 
