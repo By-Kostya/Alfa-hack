@@ -227,12 +227,15 @@ function App() {
     if (!viewport || route !== ROUTES.dashboard) return;
 
     const updateSlideWidth = () => {
-      const availablePeek = Math.max(0, (viewport.clientWidth - 220) / 2);
-      const peek = cabinet && cabinet.products.length > 1
-        ? Math.min(104, Math.max(24, viewport.clientWidth * 0.14), availablePeek)
+      const width = viewport.clientWidth;
+      const multi = Boolean(cabinet && cabinet.products.length > 1);
+      const peek = multi
+        ? (width < 760
+          ? Math.min(36, Math.max(14, Math.round(width * 0.05)))
+          : Math.min(104, Math.max(40, Math.round(width * 0.09))))
         : 0;
       viewport.style.setProperty('--carousel-peek', `${peek}px`);
-      viewport.style.setProperty('--carousel-slide-width', `${Math.max(220, viewport.clientWidth - peek * 2)}px`);
+      viewport.style.setProperty('--carousel-slide-width', `${Math.max(1, width - peek * 2)}px`);
       syncActiveProductFromScroll();
     };
     const observer = new ResizeObserver(updateSlideWidth);
@@ -394,6 +397,21 @@ function App() {
       <WelcomeScreen
         user={cabinet.user}
         onContinue={() => navigateTo(ROUTES.dashboard)}
+      />
+    );
+  }
+
+  if (!cabinet && route === ROUTES.login) {
+    return (
+      <LoginScreen
+        phone={phone}
+        isComplete={isComplete}
+        isSubmitting={isSubmitting}
+        error={error}
+        profiles={demoProfiles}
+        onPhoneChange={handlePhoneChange}
+        onSubmit={handlePhoneSubmit}
+        onPick={(profilePhone) => void loginWithPhone(profilePhone)}
       />
     );
   }
@@ -860,6 +878,77 @@ function CompanyProfileCard({ company }: { company: CompanyProfile }) {
         {company.okved && <div className="company-profile-details-wide"><dt>Деятельность</dt><dd>{company.okved}</dd></div>}
       </dl>
     </section>
+  );
+}
+
+function LoginScreen({
+  phone,
+  isComplete,
+  isSubmitting,
+  error,
+  profiles,
+  onPhoneChange,
+  onSubmit,
+  onPick,
+}: {
+  phone: string;
+  isComplete: boolean;
+  isSubmitting: boolean;
+  error: string;
+  profiles: DemoProfile[];
+  onPhoneChange: (value: string) => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onPick: (phone: string) => void;
+}) {
+  return (
+    <main className="welcome-screen login-screen" aria-labelledby="auth-title">
+      <span className="welcome-letter" aria-hidden="true">А</span>
+      <header className="welcome-topbar">
+        <div className="welcome-wordmark" aria-label="Альфа-Бизнес">
+          <span>Альфа</span><b>Бизнес</b>
+        </div>
+        <span className="welcome-topbar-label">Вход</span>
+      </header>
+      <section className="welcome-copy">
+        <p className="welcome-kicker"><span /> Личный кабинет</p>
+        <h1 id="auth-title">Вход<br />в кабинет</h1>
+        <div className="welcome-rule" aria-hidden="true" />
+        <p className="welcome-caption">Номер телефона или готовый профиль</p>
+        <div className="login-card">
+          <form className="phone-form" onSubmit={onSubmit} noValidate>
+            <label className="phone-label" htmlFor="phone">Номер телефона</label>
+            <PhoneField
+              id="phone"
+              value={phone}
+              onChange={onPhoneChange}
+              disabled={isSubmitting}
+            />
+            <button className="submit-button" type="submit" disabled={!isComplete || isSubmitting}>
+              {isSubmitting ? 'Входим…' : 'Продолжить'}
+            </button>
+            {error && <p className="request-error" role="alert">{error}</p>}
+          </form>
+          {profiles.length > 0 && (
+            <div className="login-profiles">
+              {profiles.map((profile) => (
+                <button
+                  type="button"
+                  key={profile.phone}
+                  disabled={isSubmitting}
+                  onClick={() => onPick(profile.phone)}
+                >
+                  <strong>{profile.full_name}</strong>
+                  <span>{profile.company_name}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
+      <footer className="welcome-footer">
+        <span>Альфа-Бизнес</span>
+      </footer>
+    </main>
   );
 }
 
