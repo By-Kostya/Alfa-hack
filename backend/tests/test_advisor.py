@@ -138,6 +138,21 @@ class AdvisorMathTest(unittest.TestCase):
         self.assertEqual(result["reply"], UNKNOWN_QUESTION)
         self.assertEqual(result["voice"], "formula")
 
+    def test_apply_intent_asks_the_next_field(self):
+        result = advise(
+            "working_capital",
+            None,
+            None,
+            "Круто давай оформлять что от меня требуется?",
+        )
+        self.assertEqual(result["answers"]["goal"], "working_capital")
+        self.assertIsNone(result["answers"]["amount_rub"])
+        self.assertEqual(result["brief"]["say"], "ask_amount")
+        self.assertIn("Оформляем", result["reply"])
+        self.assertIn("Какая сумма", result["reply"])
+        self.assertNotIn("карточках", result["reply"])
+        self.assertEqual(result["voice"], "formula")
+
     def test_question_history_does_not_move_the_form(self):
         result = advise(
             "equipment",

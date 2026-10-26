@@ -370,13 +370,20 @@ def decide(
                 phone = parsed_phone
         elif _sms_ok(message):
             filing = True
+        elif wants_application(message):
+            problem = "chatter"
+            aside = "Оформляем."
         else:
             problem = "sms"
         if problem == "unparsed":
-            line = chatter_line(message)
-            if line:
+            if wants_application(message):
                 problem = "chatter"
-                aside = line
+                aside = "Оформляем."
+            else:
+                line = chatter_line(message)
+                if line:
+                    problem = "chatter"
+                    aside = line
 
     purpose = _capture_purpose(goal, purpose, message)
     issue = _range_issue(goal, amount, term) if goal and problem is None else None
@@ -527,6 +534,15 @@ def speak(brief: dict) -> tuple[str, str]:
     return cleaned, "qwen"
 
 
+def wants_application(text: str) -> bool:
+    raw = text.lower().replace("ё", "е")
+    if any(part in raw for part in ("оформл", "заявк", "анкет")):
+        return True
+    if "от меня" in raw and any(part in raw for part in ("что", "нужн", "требу", "надо")):
+        return True
+    return any(part in raw for part in ("давай дальше", "давайте дальше", "продолжим", "продолжаем", "заполня"))
+
+
 def looks_like_question(text: str) -> bool:
     raw = text.lower().replace("ё", "е")
     if "?" in raw:
@@ -617,7 +633,7 @@ def advise(
     phone: Optional[str] = None,
     history: Optional[list] = None,
 ) -> dict:
-    if looks_like_question(text) and not is_bare_slot(text):
+    if looks_like_question(text) and not is_bare_slot(text) and not wants_application(text):
         decision = decide(
             goal,
             amount_rub,
