@@ -1,0 +1,37 @@
+---
+description: Where tests live, and how run reports differ from agent reviews
+alwaysApply: true
+---
+
+# Testing
+
+Tests for one unit live only in that unit's `tests/`. A finance case does not sit in identity, and a buyer scenario does not sit in seller.
+
+| Unit | Tests |
+|---|---|
+| `services/<name>` | `services/<name>/tests/` |
+| `apps/<name>` | `apps/<name>/tests/` |
+| `packages/js`, `packages/py` | `packages/js/tests/`, `packages/py/tests/` |
+
+Each of those folders has `run.sh`. It runs only that unit and writes one file per invocation.
+
+## Two files, never one combined essay
+
+- **Script report:** `<unit>/tests/reports/<stamp>.md`. Facts only: command, exit code, passed / failed / skipped. The script creates it. Do not edit it by hand and do not overwrite an older stamp.
+- **Agent review:** `<unit>/tests/reviews/<stamp>.md`. Written by an agent after the run: what the suite actually proved, gaps, doc mismatches. The script does not write this file.
+
+`tests/run-all.sh` runs every `run.sh` and writes `tests/reports/<stamp>.md` with each suite's exit code and report path. It does not replace the per-suite reports.
+
+```text
+# ❌ BAD
+tests/contract/REPORT.md          # one file, rewritten, mixed services
+services/finance/tests/identity.test.ts
+
+# ✅ GOOD
+services/finance/tests/run.sh
+services/finance/tests/reports/20261012T020000Z.md
+services/finance/tests/reviews/20261012T020000Z.md
+tests/run-all.sh
+```
+
+Do not put tokens, passwords, or envelope plaintext in reports or reviews. `legacy/` stays out of these suites.
