@@ -530,7 +530,7 @@ function App() {
                                     type="button"
                                     onClick={() => {
                                       setSelectedProduct(product.code);
-                                      navigateTo(ROUTES.productChoice);
+                                      navigateTo(ROUTES.apply);
                                     }}
                                   >
                                     Выбрать продукт
