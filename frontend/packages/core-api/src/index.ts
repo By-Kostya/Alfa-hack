@@ -51,6 +51,50 @@ export type ProductDetail = Product & {
   fields: string[];
 };
 
+export type AdvisorAnswers = {
+  goal: string | null;
+  amount_rub: number | null;
+  term_months: number | null;
+  purpose: string | null;
+  profitability_rub: number | null;
+  business_plan: string | null;
+  phone: string | null;
+};
+
+export type AdvisorSaved = {
+  id: string;
+  product: string;
+  status: string;
+};
+
+export type AdvisorChoice = {
+  id: string;
+  label: string;
+};
+
+export type AdvisorTurn = {
+  goal?: string | null;
+  amount_rub?: number | null;
+  term_months?: number | null;
+  purpose?: string | null;
+  profitability_rub?: number | null;
+  business_plan?: string | null;
+  phone?: string | null;
+  text?: string;
+};
+
+export type AdvisorReply = {
+  reply: string;
+  voice: 'qwen' | 'formula';
+  brief: Record<string, unknown>;
+  answers: AdvisorAnswers;
+  choices: AdvisorChoice[];
+  product: Product | null;
+  done: boolean;
+  token: string | null;
+  saved: AdvisorSaved | null;
+};
+
 export type ScoringReport = {
   flow_basis: string;
   risks: string[];
@@ -232,6 +276,21 @@ export function createApiClient(baseUrl?: string) {
     },
     getProductDetail(code: string) {
       return request<ProductDetail>(`/products/${encodeURIComponent(code)}`);
+    },
+    advise(turn: AdvisorTurn) {
+      return request<AdvisorReply>('/advisor', {
+        method: 'POST',
+        body: {
+          goal: turn.goal ?? null,
+          amount_rub: turn.amount_rub ?? null,
+          term_months: turn.term_months ?? null,
+          purpose: turn.purpose ?? null,
+          profitability_rub: turn.profitability_rub ?? null,
+          business_plan: turn.business_plan ?? null,
+          phone: turn.phone ?? null,
+          text: turn.text ?? '',
+        },
+      });
     },
     async getApplications(token: string) {
       const response = await request<{ applications: ApplicationCard[] }>('/applications', { token });

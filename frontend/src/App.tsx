@@ -13,6 +13,7 @@ import {
 } from '@alfa-hack/core-api';
 import { formatRussianPhone, isRussianPhoneComplete, normalizeRussianPhone } from '@alfa-hack/core-auth';
 import { applicationStatusLabel, fieldLabel, formatCompactRub, formatRub, presentProduct } from '@alfa-hack/core-credit';
+import AdvisorScreen from './AdvisorScreen';
 import ApplyScreen from './ApplyScreen';
 import PhoneField from './PhoneField';
 import SwipeBack from './SwipeBack';
@@ -27,6 +28,7 @@ const ROUTES = {
   dashboard: '/dashboard',
   productChoice: '/dashboard/credit',
   apply: '/apply',
+  advisor: '/advisor',
 } as const;
 type AppRoute = typeof ROUTES[keyof typeof ROUTES];
 
@@ -202,6 +204,8 @@ function App() {
           setRoute(initialRoute);
         } else if (initialRoute === ROUTES.apply) {
           navigateTo(ROUTES.dashboard, true);
+        } else if (initialRoute === ROUTES.advisor) {
+          setRoute(ROUTES.advisor);
         } else {
           navigateTo(ROUTES.welcome, true);
         }
@@ -230,6 +234,7 @@ function App() {
       [ROUTES.dashboard]: 'Личный кабинет — Альфа-Бизнес',
       [ROUTES.productChoice]: 'Подбор кредита — Альфа-Бизнес',
       [ROUTES.apply]: 'Заявка — Альфа-Бизнес',
+      [ROUTES.advisor]: 'Подбор — Альфа-Бизнес',
     };
     document.title = titles[route];
   }, [route]);
@@ -413,6 +418,17 @@ function App() {
     );
   }
 
+  if (route === ROUTES.advisor) {
+    return (
+      <AdvisorScreen
+        api={api}
+        onBack={() => goBack(ROUTES.login)}
+        onSession={rememberSession}
+        onCabinet={() => navigateTo(ROUTES.welcome)}
+      />
+    );
+  }
+
   if (!cabinet && route === ROUTES.login) {
     return (
       <LoginScreen
@@ -421,11 +437,10 @@ function App() {
         isSubmitting={isSubmitting}
         error={error}
         profiles={demoProfiles}
-        products={publicProducts}
         onPhoneChange={handlePhoneChange}
         onSubmit={handlePhoneSubmit}
         onPick={(profilePhone) => void loginWithPhone(profilePhone)}
-        onOpenProduct={(code) => navigateTo(ROUTES.apply, false, code)}
+        onAdvise={() => navigateTo(ROUTES.advisor)}
       />
     );
   }
@@ -898,22 +913,20 @@ function LoginScreen({
   isSubmitting,
   error,
   profiles,
-  products,
   onPhoneChange,
   onSubmit,
   onPick,
-  onOpenProduct,
+  onAdvise,
 }: {
   phone: string;
   isComplete: boolean;
   isSubmitting: boolean;
   error: string;
   profiles: DemoProfile[];
-  products: Product[];
   onPhoneChange: (value: string) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onPick: (phone: string) => void;
-  onOpenProduct: (code: string) => void;
+  onAdvise: () => void;
 }) {
   return (
     <main className="welcome-screen login-screen" aria-labelledby="auth-title">
@@ -922,14 +935,16 @@ function LoginScreen({
         <div className="welcome-wordmark" aria-label="Альфа-Бизнес">
           <span>Альфа</span><b>Бизнес</b>
         </div>
-        <span className="welcome-topbar-label">Вход</span>
+        <span className="welcome-topbar-label">Старт</span>
       </header>
       <section className="welcome-copy">
-        <p className="welcome-kicker"><span /> Личный кабинет</p>
-        <h1 id="auth-title">Вход<br />в кабинет</h1>
+        <p className="welcome-kicker"><span /> Кредит для предпринимателей</p>
+        <h1 id="auth-title">Деньги<br />на дело</h1>
         <div className="welcome-rule" aria-hidden="true" />
-        <p className="welcome-caption">Номер телефона или готовый профиль</p>
+        <p className="welcome-caption">Оборот, станок, контракт или кассовый разрыв. Сначала подберём продукт, номер нужен только чтобы сохранить заявку.</p>
+        <button className="login-advisor" type="button" onClick={onAdvise}>Попробовать продукт</button>
         <div className="login-card">
+          <p className="login-register-label">Регистрация</p>
           <form className="phone-form" onSubmit={onSubmit} noValidate>
             <label className="phone-label" htmlFor="phone">Номер телефона</label>
             <PhoneField
@@ -959,22 +974,6 @@ function LoginScreen({
             </div>
           )}
         </div>
-        {products.length > 0 && (
-          <div className="login-card login-offers">
-            <p className="login-offers-label">Продукты</p>
-            <div className="login-profiles">
-              {products.map((item) => {
-                const product = presentProduct(item);
-                return (
-                  <button type="button" key={product.code} onClick={() => onOpenProduct(product.code)}>
-                    <strong>{product.title}</strong>
-                    <span>{product.ratePct}% · до {formatCompactRub(product.maxAmountRub)} · до {product.maxTermMonths} мес.</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
       </section>
       <footer className="welcome-footer">
         <span>Альфа-Бизнес</span>

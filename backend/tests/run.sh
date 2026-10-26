@@ -8,11 +8,11 @@ if command -v python >/dev/null 2>&1; then
   py=python
 fi
 set +e
-"$py" -m unittest tests.test_pipeline
+"$py" -m unittest discover -s tests -p 'test_*.py'
 code=$?
 set -e
 {
-  echo "command: $py -m unittest tests.test_pipeline"
+  echo "command: $py -m unittest discover -s tests -p 'test_*.py'"
   echo "exit: $code"
 } > "tests/reports/$stamp.md"
 exit "$code"

@@ -31,6 +31,9 @@ services:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-credit}:${POSTGRES_PASSWORD:-credit}@credit-db:5432/${POSTGRES_DB:-credit}
       REDIS_URL: redis://redis:6379/0
       CORS_ORIGINS: ${CORS_ORIGINS:-}
+      ADVISOR_LLM_URL: ${ADVISOR_LLM_URL:-http://host.docker.internal:8766/paraphrase}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       credit-db:
         condition: service_healthy

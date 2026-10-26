@@ -16,6 +16,7 @@ from app.catalog import PRODUCT_LIST, product_by_code, public_product
 from app.config import settings
 from app.database import Base, SessionLocal, engine, ensure_user_columns, get_db, ping_db
 from app.demo import DEMO_PHONES, public_profiles, seed_demo
+from app.advisor import advise
 from app.scoring.calculator import ANNUAL_RATE, calculate_annuity_payment
 from app.scoring.pipeline import run_scoring_pipeline
 
@@ -223,6 +224,51 @@ def get_products():
     payload = {"products": PRODUCT_LIST}
     cache_set("products:v3:list", payload)
     return payload
+
+
+@app.post("/api/advisor")
+def advise_product(body: models.AdvisorTurnRequest, db: Session = Depends(get_db)):
+    result = advise(
+        body.goal,
+        body.amount_rub,
+        body.term_months,
+        body.text,
+        body.purpose,
+        body.profitability_rub,
+        body.business_plan,
+        body.phone,
+    )
+    draft = result.pop("file", None)
+    result["token"] = None
+    result["saved"] = None
+    if not draft:
+        return result
+    _require_complete_application(
+        product=draft["product"],
+        purpose=draft["purpose"],
+        profitability_rub=draft["profitability_rub"],
+        business_plan=draft["business_plan"],
+    )
+    user = _demo_user(db, draft["phone"])
+    user.token = f"tok_{uuid.uuid4().hex[:12]}"
+    db.commit()
+    db.refresh(user)
+    app_obj = db_models.Application(
+        user_id=user.id,
+        product=draft["product"],
+        phone=draft["phone"],
+        purpose=draft["purpose"] or "",
+        loan_amount_rub=draft["loan_amount_rub"],
+        loan_term_months=draft["loan_term_months"],
+        profitability_rub=draft["profitability_rub"],
+        business_plan=draft["business_plan"] or "",
+    )
+    db.add(app_obj)
+    db.flush()
+    execute_scoring_and_create_credit(app_obj, db)
+    result["token"] = user.token
+    result["saved"] = {"id": app_obj.id, "product": app_obj.product, "status": app_obj.status}
+    return result
 
 
 @app.get("/api/products/{code}")

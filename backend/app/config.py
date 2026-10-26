@@ -16,6 +16,7 @@ class Settings:
     database_url = os.getenv("DATABASE_URL", "sqlite:///./sql_app.db")
     redis_url = os.getenv("REDIS_URL", "")
     cors_origins = _csv("CORS_ORIGINS")
+    advisor_llm_url = os.getenv("ADVISOR_LLM_URL", "").strip()
 
     @property
     def database_host(self) -> str:

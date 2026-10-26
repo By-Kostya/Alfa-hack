@@ -210,3 +210,30 @@ class CabinetResponse(BaseModel):
     products: List[ProductItem]
     applications: List[ApplicationShortOut]
     credits: List[CreditShortOut]
+
+
+class AdvisorTurnRequest(BaseModel):
+    goal: Optional[str] = None
+    amount_rub: Optional[int] = None
+    term_months: Optional[int] = None
+    profitability_rub: Optional[int] = None
+    purpose: Optional[str] = None
+    business_plan: Optional[str] = None
+    phone: Optional[str] = None
+    text: str = ""
+
+    @field_validator("amount_rub", "term_months", "profitability_rub", mode="before")
+    def check_whole_number(cls, value):
+        return require_whole_number(value)
+
+    @field_validator("text", "purpose", "business_plan")
+    def check_text(cls, value):
+        if value is None:
+            return None
+        if not isinstance(value, str):
+            raise ValueError("Напишите сообщение текстом.")
+        return value.strip()[:500]
+
+    @field_validator("phone")
+    def check_phone(cls, value):
+        return validate_phone_str(value)

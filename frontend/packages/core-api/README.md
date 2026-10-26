@@ -16,6 +16,7 @@ HTTP-клиент кабинета. Контракт: `docs/contract.md`. React 
 - `getCabinet(token)` — `GET /cabinet`.
 - `getProducts()` — `GET /products`. У каждого продукта свои `annual_rate_pct`, сумма и срок.
 - `getProductDetail(code)` — `GET /products/{code}`, те же условия плюс `fields`.
+- `advise(turn)` — `POST /advisor` без токена. В теле уже собранные ответы и новая реплика. Формула возвращает следующий вопрос. `voice` равен `qwen`, если фразу сказала базовая модель, и `formula`, если сработал шаблон. После кода `0000` в ответе есть `token` и `saved`: заявка уже лежит на этом номере.
 - `getApplications(token)`, `getApplicationDetail(token, id)`.
 - `createApplication(token, body)` — `POST /applications`. С токеном ответ — заявка-черновик. Без токена в теле есть `phone`, ответ — `{ token, user, application }`. Отличить его можно через `isLinkApplication`.
 - `confirmApplication(token, id, { phone })` — `POST /applications/{id}/confirm`.
