@@ -1,4 +1,6 @@
-from typing import Optional, Dict, Any, Tuple
+import re
+from typing import Any, Dict, Optional
+
 from app.scoring.calculator import calculate_annuity_payment
 
 LIMIT_STEPS = [2_000_000, 800_000, 300_000]
@@ -80,6 +82,23 @@ def evaluate_math_pipeline(
     }
 
 
+def flow_from_plan(text: Optional[str]) -> Optional[int]:
+    """Демо-поток из текста плана, пока энкодер не подключён."""
+    if not text or not text.strip():
+        return None
+    found = []
+    for match in re.finditer(r"\d[\d\s]{2,}", text):
+        digits = re.sub(r"\s+", "", match.group())
+        if digits.isdigit():
+            found.append(int(digits))
+    monthly = [value for value in found if 10_000 <= value <= 5_000_000]
+    if monthly:
+        return max(monthly)
+    if len(text.strip()) >= 40:
+        return 150_000
+    return 20_000
+
+
 def run_scoring_pipeline(
     product: str,
     loan_amount_rub: int,
@@ -104,6 +123,9 @@ def run_scoring_pipeline(
         # Безопасный переход на математику (fallback: True)
         flow = profitability_rub
         basis = "form" if flow is not None else "unknown"
+        if flow is None and business_plan and business_plan.strip():
+            flow = flow_from_plan(business_plan)
+            basis = "inferred"
         return evaluate_math_pipeline(
             loan_amount_rub=loan_amount_rub,
             loan_term_months=loan_term_months,

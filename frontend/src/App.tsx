@@ -6,10 +6,14 @@ import {
   type Cabinet,
   type CompanyProfile,
   type CreditDetail,
+  type DemoProfile,
+  type Product,
   type ProductDetail,
   type UserProfile,
 } from '@alfa-hack/core-api';
 import { formatRussianPhone, isRussianPhoneComplete, normalizeRussianPhone } from '@alfa-hack/core-auth';
+import { applicationStatusLabel, fieldLabel, formatCompactRub, formatRub, presentProduct } from '@alfa-hack/core-credit';
+import ApplyScreen from './ApplyScreen';
 
 const TOKEN_KEY = 'alfa-hack:token';
 const PENDING_PHONE_KEY = 'alfa-hack:pending-phone';
@@ -17,10 +21,10 @@ const WELCOME_DURATION_MS = 3000;
 const api = createApiClient();
 const ROUTES = {
   login: '/',
-  code: '/verify',
   welcome: '/welcome',
   dashboard: '/dashboard',
   productChoice: '/dashboard/credit',
+  apply: '/apply',
 } as const;
 type AppRoute = typeof ROUTES[keyof typeof ROUTES];
 
@@ -34,17 +38,23 @@ type CabinetDetail =
   | { kind: 'credit'; value: CreditDetail };
 
 function App() {
-  const [route, setRoute] = useState<AppRoute>(() => normalizeRoute(window.location.pathname));
+  const [route, setRoute] = useState<AppRoute>(() => {
+    const path = normalizeRoute(window.location.pathname);
+    const product = new URLSearchParams(window.location.search).get('product');
+    if (product && path === ROUTES.login) return ROUTES.apply;
+    return path;
+  });
   const [phone, setPhone] = useState(() => formatRussianPhone(sessionStorage.getItem(PENDING_PHONE_KEY) || '+7'));
-  const [code, setCode] = useState('');
   const [cabinet, setCabinet] = useState<Cabinet | null>(null);
+  const [publicProducts, setPublicProducts] = useState<Product[]>([]);
+  const [demoProfiles, setDemoProfiles] = useState<DemoProfile[]>([]);
   const [activeProductIndex, setActiveProductIndex] = useState(0);
-  const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
+  const [selectedProduct, setSelectedProduct] = useState<string | null>(
+    () => new URLSearchParams(window.location.search).get('product'),
+  );
   const [selectedProductDetail, setSelectedProductDetail] = useState<ProductDetail | null>(null);
   const [isLoadingProductDetail, setIsLoadingProductDetail] = useState(false);
   const [productDetailError, setProductDetailError] = useState('');
-  const [smsMessage, setSmsMessage] = useState('');
-  const [smsCodeHint, setSmsCodeHint] = useState('0000');
   const [cabinetDetail, setCabinetDetail] = useState<CabinetDetail | null>(null);
   const [isLoadingCabinetDetail, setIsLoadingCabinetDetail] = useState(false);
   const [cabinetDetailError, setCabinetDetailError] = useState('');
@@ -160,7 +170,7 @@ function App() {
     const initialRoute = normalizeRoute(window.location.pathname);
     if (!token) return;
 
-    api.getDashboardData(token)
+    api.getCabinet(token)
       .then((nextCabinet) => {
         setCabinet(nextCabinet);
         if (initialRoute === ROUTES.dashboard || initialRoute === ROUTES.productChoice) {
@@ -181,10 +191,6 @@ function App() {
   useEffect(() => {
     if (isRestoring) return;
     const token = sessionStorage.getItem(TOKEN_KEY);
-    if (route === ROUTES.code) {
-      if (!sessionStorage.getItem(PENDING_PHONE_KEY)) navigateTo(ROUTES.login, true);
-      return;
-    }
     if ((route === ROUTES.welcome || route === ROUTES.dashboard || route === ROUTES.productChoice) && (!token || !cabinet)) {
       navigateTo(ROUTES.login, true);
     }
@@ -193,10 +199,10 @@ function App() {
   useEffect(() => {
     const titles: Record<AppRoute, string> = {
       [ROUTES.login]: 'Вход — Альфа-Бизнес',
-      [ROUTES.code]: 'Подтверждение номера — Альфа-Бизнес',
       [ROUTES.welcome]: 'Добро пожаловать — Альфа-Бизнес',
       [ROUTES.dashboard]: 'Личный кабинет — Альфа-Бизнес',
       [ROUTES.productChoice]: 'Подбор кредита — Альфа-Бизнес',
+      [ROUTES.apply]: 'Заявка — Альфа-Бизнес',
     };
     document.title = titles[route];
   }, [route]);
@@ -253,49 +259,41 @@ function App() {
     return () => { isCurrentRequest = false; };
   }, [selectedProduct]);
 
+  useEffect(() => {
+    if (cabinet) return;
+    api.getProducts().then(setPublicProducts).catch(() => setPublicProducts([]));
+  }, [cabinet]);
+
+  useEffect(() => {
+    api.getDemoProfiles().then(setDemoProfiles).catch(() => setDemoProfiles([]));
+  }, []);
+
   function handlePhoneChange(value: string) {
     setPhone(formatRussianPhone(value));
     setError('');
-    setSmsMessage('');
-    setSmsCodeHint('0000');
   }
 
-  async function handlePhoneSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!normalizedPhone || isSubmitting) return;
-
-    setError('');
-    setSmsMessage('');
-    setIsSubmitting(true);
-    try {
-      const response = await api.sendSmsCode(normalizedPhone);
-      setSmsMessage(response.message);
-      setSmsCodeHint(response.code || '0000');
-      setCode('');
-      sessionStorage.setItem(PENDING_PHONE_KEY, normalizedPhone);
-      navigateTo(ROUTES.code);
-    } catch (requestError) {
-      setError(getErrorMessage(requestError));
-    } finally {
-      setIsSubmitting(false);
-    }
+  async function rememberSession(nextToken: string) {
+    sessionStorage.setItem(TOKEN_KEY, nextToken);
+    setCabinet(await api.getCabinet(nextToken));
   }
 
-  async function handleCodeSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!normalizedPhone || isSubmitting) return;
+  async function openCabinet(nextToken: string, welcome = false) {
+    await rememberSession(nextToken);
+    navigateTo(welcome ? ROUTES.welcome : ROUTES.dashboard);
+  }
 
+  async function loginWithPhone(rawPhone: string) {
+    const nextPhone = normalizeRussianPhone(rawPhone);
+    if (!nextPhone || isSubmitting) return;
+    setPhone(formatRussianPhone(rawPhone));
     setError('');
     setIsSubmitting(true);
     try {
-      const session = await api.createSession(normalizedPhone, code);
+      const session = await api.createSession(nextPhone);
       if (!session.token) throw new Error('Сервер не вернул токен входа.');
-
-      sessionStorage.setItem(TOKEN_KEY, session.token);
       sessionStorage.removeItem(PENDING_PHONE_KEY);
-      const nextCabinet = await api.getDashboardData(session.token);
-      setCabinet(nextCabinet);
-      navigateTo(ROUTES.welcome);
+      await openCabinet(session.token, true);
     } catch (requestError) {
       if (requestError instanceof ApiError && requestError.status === 401) {
         sessionStorage.removeItem(TOKEN_KEY);
@@ -306,6 +304,12 @@ function App() {
     }
   }
 
+  async function handlePhoneSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!normalizedPhone) return;
+    await loginWithPhone(normalizedPhone);
+  }
+
   async function handleLogout() {
     const token = sessionStorage.getItem(TOKEN_KEY);
     sessionStorage.removeItem(TOKEN_KEY);
@@ -314,7 +318,6 @@ function App() {
     setSelectedProduct(null);
     setError('');
     setPhone('+7');
-    setCode('');
     navigateTo(ROUTES.login, true);
     closeCabinetDetail();
 
@@ -389,22 +392,21 @@ function App() {
           </div>
           {cabinet && (
             <details className="topbar-account">
-              <summary className="topbar-account-trigger" aria-label={`Профиль пользователя ${cabinet.user.full_name || cabinet.user.phone}`}>
-                <span className="topbar-account-avatar" aria-hidden="true">{getUserInitials(cabinet.user.full_name)}</span>
+              <summary className="topbar-account-trigger" aria-label={`Профиль пользователя ${displayName(cabinet.user)}`}>
+                <span className="topbar-account-avatar" aria-hidden="true">{initials(cabinet.user.full_name)}</span>
                 <span className="topbar-account-copy">
                   <span>{cabinet.user.role || 'Личный кабинет'}</span>
-                  <strong>{getShortUserName(cabinet.user.full_name) || cabinet.user.phone}</strong>
-                  <small>{cabinet.user.email || cabinet.user.phone}</small>
+                  <strong>{displayName(cabinet.user)}</strong>
                 </span>
                 <span className="topbar-account-caret" aria-hidden="true">⌄</span>
               </summary>
               <div className="topbar-account-panel">
                 <p>ПРОФИЛЬ</p>
-                <strong>{cabinet.user.full_name || cabinet.user.phone}</strong>
+                <strong>{displayName(cabinet.user)}</strong>
                 <dl>
                   {cabinet.user.role && <div><dt>Должность</dt><dd>{cabinet.user.role}</dd></div>}
-                  {cabinet.user.email && <div><dt>Электронная почта</dt><dd>{cabinet.user.email}</dd></div>}
                   <div><dt>Телефон</dt><dd>{cabinet.user.phone}</dd></div>
+                  {cabinet.user.email && <div><dt>Почта</dt><dd>{cabinet.user.email}</dd></div>}
                 </dl>
               </div>
             </details>
@@ -413,7 +415,23 @@ function App() {
 
         <div className={`auth-content${cabinet ? ' auth-content--dashboard' : ''}`}>
           <div className={`auth-copy${cabinet ? ' auth-copy--dashboard' : ''}`}>
-            {cabinet ? (
+            {route === ROUTES.apply ? (
+              <ApplyScreen
+                api={api}
+                productCode={selectedProduct}
+                token={sessionStorage.getItem(TOKEN_KEY)}
+                sessionPhone={cabinet?.user.phone ?? null}
+                products={cabinet?.products ?? publicProducts}
+                onPickProduct={setSelectedProduct}
+                onBack={() => navigateTo(cabinet ? ROUTES.dashboard : ROUTES.login)}
+                onSession={rememberSession}
+                onDone={() => {
+                  const activeToken = sessionStorage.getItem(TOKEN_KEY);
+                  if (activeToken) void openCabinet(activeToken);
+                  else navigateTo(ROUTES.login);
+                }}
+              />
+            ) : cabinet ? (
               route === ROUTES.dashboard ? (
                 <section className="dashboard" aria-labelledby="auth-title">
                   <section className="product-showcase" aria-label="Кредитные продукты">
@@ -438,7 +456,9 @@ function App() {
                           tabIndex={0}
                         >
                           <div className="product-carousel-track">
-                            {cabinet.products.map((product, index) => (
+                            {cabinet.products.map((item, index) => {
+                              const product = presentProduct(item);
+                              return (
                               <article
                                 className={`product-slide${index === activeProductIndex ? ' product-slide--active' : ''}`}
                                 key={product.code}
@@ -459,8 +479,8 @@ function App() {
                                   <h2>{product.title}</h2>
                                   <p>{product.description}</p>
                                   <div className="product-slide-facts">
-                                    <div><span>Ставка</span><strong>от {product.rate_pct}%</strong></div>
-                                    <div><span>Срок</span><strong>{product.min_term_months}–{product.max_term_months} мес.</strong></div>
+                                    <div><span>Ставка</span><strong>{product.ratePct}%</strong></div>
+                                    <div><span>Срок</span><strong>{product.minTermMonths}–{product.maxTermMonths} мес.</strong></div>
                                   </div>
                                   <button
                                     className="product-slide-cta"
@@ -478,13 +498,14 @@ function App() {
                                   <span className="product-slide-art-letter">А</span>
                                   <div className="product-slide-amount">
                                     <span>ДОСТУПНАЯ СУММА</span>
-                                    <strong>до {formatCompactRub(product.max_amount_rub)}</strong>
-                                    <i>{formatRub(product.min_amount_rub)} — {formatRub(product.max_amount_rub)}</i>
+                                    <strong>до {formatCompactRub(product.maxAmountRub)}</strong>
+                                    <i>{formatRub(product.minAmountRub)} — {formatRub(product.maxAmountRub)}</i>
                                   </div>
                                   <span className="product-slide-art-code">{product.code.replace(/_/g, ' ').toUpperCase()}</span>
                                 </div>
                               </article>
-                            ))}
+                            );
+                            })}
                           </div>
                         </div>
                         <div className="product-carousel-footer">
@@ -556,7 +577,7 @@ function App() {
                                 </span>
                                 <span className="dashboard-list-meta">
                                   <strong>{formatRub(application.limit_rub ?? application.loan_amount_rub)}</strong>
-                                  <span>{getApplicationStatus(application.status, application.decision)}</span>
+                                  <span>{applicationStatusLabel(application.status, application.decision)}</span>
                                 </span>
                               </button>
                             </li>
@@ -612,7 +633,7 @@ function App() {
                             <p className="eyebrow">Заявка</p>
                             <h2 id="detail-title">{getProductTitle(cabinet, cabinetDetail.value.product)}</h2>
                             <dl className="detail-grid">
-                              <div><dt>Статус</dt><dd>{getApplicationStatus(cabinetDetail.value.status, cabinetDetail.value.decision)}</dd></div>
+                              <div><dt>Статус</dt><dd>{applicationStatusLabel(cabinetDetail.value.status, cabinetDetail.value.decision)}</dd></div>
                               <div><dt>Сумма</dt><dd>{formatRub(cabinetDetail.value.limit_rub ?? cabinetDetail.value.loan_amount_rub)}</dd></div>
                               <div><dt>Срок</dt><dd>{cabinetDetail.value.loan_term_months} мес.</dd></div>
                               <div><dt>Дата</dt><dd>{formatShortDate(cabinetDetail.value.created_at)}</dd></div>
@@ -670,7 +691,7 @@ function App() {
                         <span className="product-choice-index" aria-hidden="true">{String(index + 1).padStart(2, '0')}</span>
                         <span className="product-choice-copy">
                           <strong>{getProductTitle(cabinet, product.code)}</strong>
-                          <span>{product.description}</span>
+                          <span>{presentProduct(product).description}</span>
                         </span>
                         <span className="product-choice-check" aria-hidden="true">
                           {selectedProduct === product.code ? '✓' : '→'}
@@ -688,18 +709,21 @@ function App() {
                           <span>На следующем шаге понадобятся:</span>
                           <div className="product-requirements">
                             {selectedProductDetail.fields.map((field) => (
-                              <span key={field}>{getProductFieldTitle(field)}</span>
+                              <span key={field}>{fieldLabel(field)}</span>
                             ))}
                           </div>
                         </>
                       )}
+                      <button className="submit-button" type="button" onClick={() => navigateTo(ROUTES.apply)}>
+                        Заполнить заявку <span aria-hidden="true">→</span>
+                      </button>
                     </div>
                   )}
                 </section>
               )
-            ) : route !== ROUTES.code ? (
+            ) : (
               <>
-                <div className="auth-progress" aria-label="Шаг 1 из 2">
+                <div className="auth-progress" aria-label="Вход">
                   <strong>01</strong><span>Вход по номеру телефона</span><i><span /></i>
                 </div>
                 <p className="eyebrow">Личный кабинет</p>
@@ -730,63 +754,28 @@ function App() {
                     {phone.length > 2 && !isComplete ? 'Проверьте номер телефона' : ''}
                   </p>
                   <button className="submit-button" type="submit" disabled={!isComplete || isSubmitting}>
-                    {isSubmitting ? 'Отправляем код…' : 'Продолжить'} <span aria-hidden="true">→</span>
+                    {isSubmitting ? 'Входим…' : 'Продолжить'} <span aria-hidden="true">→</span>
                   </button>
                   {error && <p className="request-error" role="alert">{error}</p>}
                 </form>
-              </>
-            ) : (
-              <>
-                <div className="auth-progress auth-progress--code" aria-label="Шаг 2 из 2">
-                  <strong>02</strong><span>Подтверждение номера</span><i><span /></i>
-                </div>
-                <p className="eyebrow">Подтверждение номера</p>
-                <h1 id="auth-title">Введите код из СМС</h1>
-                <p className="intro">Код для номера {phone}</p>
-
-                <form className="phone-form" onSubmit={handleCodeSubmit} noValidate>
-                  <label className="phone-label" htmlFor="sms-code">Код подтверждения</label>
-                  <input
-                    className="sms-code-input"
-                    id="sms-code"
-                    name="sms-code"
-                    type="text"
-                    inputMode="numeric"
-                    autoComplete="one-time-code"
-                    pattern="[0-9]*"
-                    maxLength={4}
-                    placeholder="····"
-                    value={code}
-                    onChange={(event) => {
-                      setCode(event.target.value.replace(/\D/g, '').slice(0, 4));
-                      setError('');
-                    }}
-                    aria-describedby={error ? 'code-hint code-error' : 'code-hint'}
-                    aria-invalid={Boolean(error)}
-                    disabled={isSubmitting}
-                  />
-                  <p className="code-hint" id="code-hint">
-                    {smsMessage} Для демонстрации введите {smsCodeHint}
-                  </p>
-                  {error && <p className="request-error" id="code-error" role="alert">{error}</p>}
-                  <button className="submit-button" type="submit" disabled={code.length !== 4 || isSubmitting}>
-                    {isSubmitting ? 'Входим…' : 'Подтвердить'} <span aria-hidden="true">→</span>
-                  </button>
-                  <button
-                    className="change-phone-button"
-                    type="button"
-                    onClick={() => {
-                      sessionStorage.removeItem(PENDING_PHONE_KEY);
-                      navigateTo(ROUTES.login);
-                      setCode('');
-                      setError('');
-                      setSmsMessage('');
-                      setSmsCodeHint('0000');
-                    }}
-                  >
-                    Изменить номер
-                  </button>
-                </form>
+                {demoProfiles.length > 0 && (
+                  <div className="product-choice-list apply-entry-list">
+                    {demoProfiles.map((profile) => (
+                      <button
+                        className="product-choice-card"
+                        type="button"
+                        key={profile.phone}
+                        disabled={isSubmitting}
+                        onClick={() => void loginWithPhone(profile.phone)}
+                      >
+                        <span className="product-choice-copy">
+                          <strong>{profile.full_name}</strong>
+                          <span>{profile.company_name}</span>
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </>
             )}
 
@@ -815,102 +804,59 @@ function getProductTitle(cabinet: Cabinet, code: string): string {
   return cabinet.products.find((product) => product.code === code)?.title ?? code;
 }
 
-function getProductFieldTitle(field: string): string {
-  const labels: Record<string, string> = {
-    loan_amount_rub: 'Сумма кредита',
-    loan_term_months: 'Срок кредита',
-    purpose: 'Цель кредита',
-    profitability_rub: 'Оборот бизнеса',
-    profitability_confirmed: 'Подтверждение оборота',
-    collateral: 'Залог',
-    business_plan: 'Бизнес-план',
-    own_funds_rub: 'Собственные средства',
-    credit_rating: 'Кредитный рейтинг',
-  };
-  return labels[field] ?? 'Дополнительные данные';
-}
-
-function getApplicationStatus(status: string, decision: string | null): string {
-  if (status === 'draft') return 'Черновик';
-  if (decision === 'approve') return 'Одобрена';
-  if (decision === 'reduced') return 'Одобрена на меньшую сумму';
-  if (decision === 'reject') return 'Отказ';
-  if (decision === 'unknown') return 'Нужно уточнить данные';
-  return status;
-}
-
-function formatRub(value: number | null): string {
-  if (value === null) return '—';
-  return `${new Intl.NumberFormat('ru-RU').format(value)} ₽`;
-}
-
-function formatCompactRub(value: number): string {
-  return new Intl.NumberFormat('ru-RU', {
-    style: 'currency',
-    currency: 'RUB',
-    notation: 'compact',
-    maximumFractionDigits: 1,
-  }).format(value);
-}
-
 function formatShortDate(value: string): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '';
   return new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long' }).format(date);
 }
 
-function CompanyProfileCard({ company }: { company: CompanyProfile }) {
-  const displayName = company.short_name || company.name || 'Профиль компании';
+function displayName(user: UserProfile): string {
+  return user.full_name?.trim() || user.phone;
+}
 
+function initials(fullName?: string | null): string {
+  const letters = fullName?.trim().split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join('');
+  return letters?.toLocaleUpperCase('ru-RU') || 'А';
+}
+
+function CompanyProfileCard({ company }: { company: CompanyProfile }) {
+  const title = company.short_name || company.name || 'Компания';
   return (
     <section className="company-profile" aria-labelledby="company-profile-title">
       <header className="company-profile-heading">
         <div>
-          <p className="company-profile-kicker"><span /> ПРОФИЛЬ КОМПАНИИ</p>
-          <h2 id="company-profile-title">{displayName}</h2>
-          {company.name && company.name !== displayName && <p className="company-profile-legal-name">{company.name}</p>}
+          <p className="company-profile-kicker"><span /> КОМПАНИЯ</p>
+          <h2 id="company-profile-title">{title}</h2>
+          {company.name && company.name !== title && <p className="company-profile-legal-name">{company.name}</p>}
         </div>
         {company.status && <span className="company-profile-status">{company.status}</span>}
       </header>
-
       <div className="company-profile-metrics">
         <article className="company-profile-metric company-profile-metric--limit">
           <span>Предварительный лимит</span>
           <strong>{formatRub(company.preapproved_limit_rub ?? null)}</strong>
-          <small>для развития бизнеса</small>
         </article>
         <article className="company-profile-metric">
-          <span>Ежемесячная выручка</span>
+          <span>Выручка в месяц</span>
           <strong>{formatRub(company.monthly_revenue_rub ?? null)}</strong>
-          <small>по данным профиля</small>
         </article>
         <article className="company-profile-metric">
-          <span>Кредитный рейтинг</span>
+          <span>Рейтинг</span>
           <strong>{company.credit_rating ?? '—'}</strong>
-          <small>{company.rating_grade || 'Рейтинг компании'}</small>
+          <small>{company.rating_grade || ''}</small>
         </article>
       </div>
-
       <dl className="company-profile-details">
         {company.inn && <div><dt>ИНН</dt><dd>{company.inn}</dd></div>}
         {company.ogrn && <div><dt>ОГРН</dt><dd>{company.ogrn}</dd></div>}
-        {company.registration_date && (
-          <div><dt>Дата регистрации</dt><dd>{formatCompanyDate(company.registration_date)}</dd></div>
-        )}
-        {company.okved && <div className="company-profile-details-wide"><dt>Основной вид деятельности</dt><dd>{company.okved}</dd></div>}
+        {company.okved && <div className="company-profile-details-wide"><dt>Деятельность</dt><dd>{company.okved}</dd></div>}
       </dl>
     </section>
   );
 }
 
-function formatCompanyDate(value: string): string {
-  const date = new Date(`${value.slice(0, 10)}T00:00:00`);
-  if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' }).format(date);
-}
-
 function WelcomeScreen({ user, onContinue }: { user: UserProfile; onContinue: () => void }) {
-  const firstName = user.full_name?.trim().split(/\s+/)[1];
+  const firstName = user.full_name?.trim().split(/\s+/)[0];
   return (
     <main className="welcome-screen" aria-labelledby="welcome-title">
       <div className="welcome-shape welcome-shape--one" aria-hidden="true" />
@@ -925,16 +871,16 @@ function WelcomeScreen({ user, onContinue }: { user: UserProfile; onContinue: ()
       </header>
 
       <section className="welcome-copy">
-        <p className="welcome-kicker"><span /> {firstName ? `Рады видеть вас, ${firstName}` : 'Рады видеть вас'}</p>
+        <p className="welcome-kicker"><span /> {firstName ? `${firstName}, рады видеть вас` : 'Рады видеть вас'}</p>
         <h1 id="welcome-title">Добро<br />пожаловать</h1>
         <div className="welcome-rule" aria-hidden="true" />
         <p className="welcome-caption">Ваш личный кабинет готов</p>
         <div className="welcome-profile">
-          <span className="welcome-profile-icon" aria-hidden="true">{getUserInitials(user.full_name)}</span>
+          <span className="welcome-profile-icon" aria-hidden="true">{initials(user.full_name)}</span>
           <span className="welcome-profile-copy">
             <span>{user.role || 'Личный кабинет'}</span>
-            <strong>{user.full_name || user.phone}</strong>
-            <small>{[user.email, user.phone].filter(Boolean).join(' · ')}</small>
+            <strong>{displayName(user)}</strong>
+            <small>{user.company?.short_name || user.phone}</small>
           </span>
           <span className="welcome-profile-check" aria-label="Вход выполнен">✓</span>
         </div>
@@ -951,16 +897,6 @@ function WelcomeScreen({ user, onContinue }: { user: UserProfile; onContinue: ()
       </footer>
     </main>
   );
-}
-
-function getShortUserName(fullName?: string | null): string | null {
-  const parts = fullName?.trim().split(/\s+/).filter(Boolean);
-  return parts?.length ? parts.slice(0, 2).join(' ') : null;
-}
-
-function getUserInitials(fullName?: string | null): string {
-  const initials = fullName?.trim().split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join('');
-  return initials?.toLocaleUpperCase('ru-RU') || 'А';
 }
 
 export default App;

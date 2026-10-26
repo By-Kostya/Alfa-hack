@@ -2,16 +2,6 @@ export type ApiErrorBody = {
   error?: string;
 };
 
-export type UserProfile = {
-  id: string;
-  phone: string;
-  full_name?: string | null;
-  role?: string | null;
-  email?: string | null;
-  company?: CompanyProfile | null;
-  [field: string]: unknown;
-};
-
 export type CompanyProfile = {
   inn?: string | null;
   ogrn?: string | null;
@@ -26,31 +16,40 @@ export type CompanyProfile = {
   preapproved_limit_rub?: number | null;
 };
 
+export type UserProfile = {
+  id: string;
+  phone: string;
+  full_name?: string | null;
+  role?: string | null;
+  email?: string | null;
+  company?: CompanyProfile | null;
+};
+
+export type DemoProfile = {
+  phone: string;
+  full_name: string;
+  role: string;
+  company_name: string;
+};
+
 export type AuthSession = {
   token: string;
   user: UserProfile;
 };
 
-export type SmsSendResponse = {
-  status: string;
-  code: string;
-  message: string;
-};
-
 export type Product = {
   code: string;
   title: string;
-  description: string;
-  badge: string;
-  rate_pct: number;
-  min_amount_rub: number;
-  max_amount_rub: number;
-  min_term_months: number;
-  max_term_months: number;
 };
 
 export type ProductDetail = Product & {
   fields: string[];
+};
+
+export type ScoringReport = {
+  flow_basis: string;
+  risks: string[];
+  quote: string;
 };
 
 export type ApplicationCard = {
@@ -78,11 +77,7 @@ export type ApplicationCard = {
 
 export type ApplicationDetail = ApplicationCard & {
   business_plan: string;
-  report: {
-    flow_basis: string;
-    risks: string[];
-    quote: string;
-  } | null;
+  report: ScoringReport | null;
 };
 
 export type CreditCard = {
@@ -105,7 +100,7 @@ export type CreditDetail = CreditCard & {
 };
 
 export type ApplicationCreateRequest = {
-  product: 'working_capital' | 'startup';
+  product: string;
   loan_amount_rub: number;
   loan_term_months: number;
   phone?: string | null;
@@ -120,7 +115,12 @@ export type ApplicationCreateRequest = {
 
 export type ApplicationConfirmRequest = {
   phone: string;
-  code?: string | null;
+};
+
+export type LinkApplicationResponse = {
+  token: string;
+  user: UserProfile;
+  application: ApplicationDetail;
 };
 
 export type Cabinet = {
@@ -140,29 +140,29 @@ export class ApiError extends Error {
   }
 }
 
+export function isLinkApplication(
+  value: ApplicationDetail | LinkApplicationResponse,
+): value is LinkApplicationResponse {
+  return 'token' in value && 'application' in value;
+}
+
 function readApiError(payload: unknown, fallback: string): string {
-  if (typeof payload === 'object' && payload !== null) {
-    if ('error' in payload) {
-      const error = (payload as ApiErrorBody).error;
-      if (typeof error === 'string' && error.trim()) return error;
-    }
-    if ('detail' in payload) {
-      if (typeof payload.detail === 'string' && payload.detail.trim()) return payload.detail;
-      if (Array.isArray(payload.detail)) {
-        const firstError = payload.detail.find((item) => (
-          typeof item === 'object' && item !== null && 'msg' in item && typeof item.msg === 'string'
-        ));
-        if (firstError && 'msg' in firstError) return firstError.msg as string;
-      }
-    }
+  if (typeof payload === 'object' && payload !== null && 'error' in payload) {
+    const error = (payload as ApiErrorBody).error;
+    if (typeof error === 'string' && error.trim()) return error;
   }
   return fallback;
 }
 
-export function createApiClient(
-  baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://10.193.155.238:8000/api',
-) {
-  const base = baseUrl.replace(/\/$/, '');
+function apiBase(explicit?: string): string {
+  if (explicit) return explicit.replace(/\/$/, '');
+  const configured = import.meta.env?.VITE_API_BASE_URL;
+  if (typeof configured === 'string' && configured.trim()) return configured.replace(/\/$/, '');
+  return '/api';
+}
+
+export function createApiClient(baseUrl?: string) {
+  const base = apiBase(baseUrl);
 
   async function request<T>(
     path: string,
@@ -195,11 +195,9 @@ export function createApiClient(
     if (!response.ok) {
       const fallback = response.status === 401
         ? 'Сессия завершилась. Войдите ещё раз.'
-        : response.status === 422
-          ? 'Проверьте введённые данные.'
-          : response.status >= 500
-            ? 'Сервис временно недоступен. Попробуйте позже.'
-            : 'Не удалось выполнить запрос.';
+        : response.status >= 500
+          ? 'Сервис временно недоступен. Попробуйте позже.'
+          : 'Не удалось выполнить запрос.';
       throw new ApiError(readApiError(payload, fallback), response.status);
     }
 
@@ -207,16 +205,14 @@ export function createApiClient(
   }
 
   return {
-    sendSmsCode(phone: string) {
-      return request<SmsSendResponse>('/auth/sms/send', {
-        method: 'POST',
-        body: { phone },
-      });
+    async getDemoProfiles() {
+      const response = await request<{ profiles: DemoProfile[] }>('/demo-profiles');
+      return response.profiles;
     },
-    createSession(phone: string, code: string) {
+    createSession(phone: string) {
       return request<AuthSession>('/auth/session', {
         method: 'POST',
-        body: { phone, code },
+        body: { phone },
       });
     },
     deleteSession(token: string) {
@@ -239,8 +235,12 @@ export function createApiClient(
     getApplicationDetail(token: string, applicationId: string) {
       return request<ApplicationDetail>(`/applications/${encodeURIComponent(applicationId)}`, { token });
     },
-    createApplication(token: string, application: ApplicationCreateRequest) {
-      return request<ApplicationCard>('/applications', { method: 'POST', token, body: application });
+    createApplication(token: string | null, application: ApplicationCreateRequest) {
+      return request<ApplicationDetail | LinkApplicationResponse>('/applications', {
+        method: 'POST',
+        token: token ?? undefined,
+        body: application,
+      });
     },
     confirmApplication(token: string, applicationId: string, confirmation: ApplicationConfirmRequest) {
       return request<ApplicationDetail>(`/applications/${encodeURIComponent(applicationId)}/confirm`, {
@@ -256,14 +256,8 @@ export function createApiClient(
     getCreditDetail(token: string, creditId: string) {
       return request<CreditDetail>(`/credits/${encodeURIComponent(creditId)}`, { token });
     },
-    async getDashboardData(token: string): Promise<Cabinet> {
-      const [user, products, applications, credits] = await Promise.all([
-        this.getCurrentUser(token),
-        this.getProducts(),
-        this.getApplications(token),
-        this.getCredits(token),
-      ]);
-      return { user, products, applications, credits };
+    getCabinet(token: string) {
+      return request<Cabinet>('/cabinet', { token });
     },
   };
 }

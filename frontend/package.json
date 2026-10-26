@@ -8,12 +8,13 @@
   ],
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "tsc --noEmit && vite build",
     "preview": "vite preview"
   },
   "dependencies": {
     "@alfa-hack/core-auth": "0.1.0",
     "@alfa-hack/core-api": "0.1.0",
+    "@alfa-hack/core-credit": "0.1.0",
     "@vitejs/plugin-react": "4.4.1",
     "vite": "6.4.5",
     "react": "19.1.0",

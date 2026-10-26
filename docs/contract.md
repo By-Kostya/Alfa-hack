@@ -43,14 +43,14 @@
 
 ## Авторизация
 
-Один номер — один пользователь. Повторный вход тем же номером возвращает того же человека и новый токен. Пароля нет.
+Один номер — один пользователь. Регистрации нет: войти можно только номером из `GET /api/demo-profiles`. Повторный вход тем же номером возвращает того же человека и новый токен. Неизвестный номер даёт `401` и текст «Номер не найден.» Пароля нет.
 
 ### `POST /api/auth/session`
 
 Токен не нужен.
 
 ```json
-{"phone": "79001234567"}
+{"phone": "79001000001"}
 ```
 
 `200`
@@ -58,11 +58,37 @@
 ```json
 {
   "token": "tok_1",
-  "user": {"id": "user-1", "phone": "79001234567"}
+  "user": {
+    "id": "user-demo-anna",
+    "phone": "79001000001",
+    "full_name": "Анна Соколова",
+    "role": "Директор",
+    "email": "anna.sokolova@severnaya.example",
+    "company": {"short_name": "ООО «Северная линия»"}
+  }
 }
 ```
 
-`400` — номер не из цифр или длина вне 10–15.
+`400` — номер не из цифр или длина вне 10–15. `401` — номера нет среди демо-профилей.
+
+### `GET /api/demo-profiles`
+
+Токен не нужен. Список номеров, которыми можно войти.
+
+`200`
+
+```json
+{
+  "profiles": [
+    {
+      "phone": "79001000001",
+      "full_name": "Анна Соколова",
+      "role": "Директор",
+      "company_name": "ООО «Северная линия»"
+    }
+  ]
+}
+```
 
 ### `DELETE /api/auth/session`
 
@@ -70,12 +96,12 @@
 
 ### `GET /api/me`
 
-Токен обязателен.
+Токен обязателен. В ответе тот же профиль, что в сессии: `id`, `phone`, `full_name`, `role`, `email`, `company`.
 
 `200`
 
 ```json
-{"id": "user-1", "phone": "79001234567"}
+{"id": "user-demo-anna", "phone": "79001000001", "full_name": "Анна Соколова", "role": "Директор", "email": "anna.sokolova@severnaya.example", "company": {}}
 ```
 
 ## Кабинет
@@ -91,7 +117,11 @@
   "user": {"id": "user-1", "phone": "79001234567"},
   "products": [
     {"code": "working_capital", "title": "Оборотный кредит"},
-    {"code": "startup", "title": "Кредит на старт"}
+    {"code": "startup", "title": "Кредит на старт"},
+    {"code": "equipment", "title": "Кредит на оборудование"},
+    {"code": "contract", "title": "Кредит под контракт"},
+    {"code": "overdraft", "title": "Овердрафт"},
+    {"code": "refinance", "title": "Рефинансирование"}
   ],
   "applications": [],
   "credits": []
@@ -112,14 +142,18 @@
 {
   "products": [
     {"code": "working_capital", "title": "Оборотный кредит"},
-    {"code": "startup", "title": "Кредит на старт"}
+    {"code": "startup", "title": "Кредит на старт"},
+    {"code": "equipment", "title": "Кредит на оборудование"},
+    {"code": "contract", "title": "Кредит под контракт"},
+    {"code": "overdraft", "title": "Овердрафт"},
+    {"code": "refinance", "title": "Рефинансирование"}
   ]
 }
 ```
 
 ### `GET /api/products/{code}`
 
-`code` — `working_capital` или `startup`.
+`code` — `working_capital`, `startup`, `equipment`, `contract`, `overdraft` или `refinance`.
 
 `200` для оборотного:
 
@@ -148,7 +182,7 @@
 }
 ```
 
-`404` — неизвестный `code`.
+Поля `equipment`, `contract`, `overdraft` и `refinance` приходят в `fields` того же ответа. `404` — неизвестный `code`.
 
 ## Заявка
 
@@ -156,7 +190,7 @@
 
 | Поле | Тип | Правило |
 | --- | --- | --- |
-| `product` | `working_capital` или `startup` | обязательно |
+| `product` | один из кодов каталога | обязательно |
 | `loan_amount_rub` | целое > 0 | обязательно, запрошенная сумма |
 | `loan_term_months` | целое 1–360 | обязательно |
 | `phone` | строка номера или поле опущено | на создании из ссылки обязателен; в кабинете номер берётся из сессии |

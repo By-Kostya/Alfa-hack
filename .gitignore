@@ -20,3 +20,5 @@ __pycache__/
 .vscode/
 .idea/
 *.log
+backend/tests/reports/
+tests/reports/

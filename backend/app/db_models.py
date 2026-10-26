@@ -19,6 +19,10 @@ class User(Base):
     id = Column(String, primary_key=True, default=lambda: generate_uuid("user-"))
     phone = Column(String, unique=True, index=True, nullable=False)
     token = Column(String, unique=True, index=True, nullable=False)
+    full_name = Column(String, nullable=True)
+    role = Column(String, nullable=True)
+    email = Column(String, nullable=True)
+    company = Column(JSON, nullable=True)
     created_at = Column(String, default=get_current_iso_time)
 
 

@@ -1,6 +1,9 @@
-from typing import Optional, List, Dict, Any, Union
-from pydantic import BaseModel, Field, field_validator
 import re
+from typing import Any, Dict, List, Optional, Union
+
+from pydantic import BaseModel, Field, field_validator
+
+from app.catalog import PRODUCT_CODES
 
 
 # --- Базовая ошибка по контракту ---
@@ -50,7 +53,7 @@ class ProductDetail(BaseModel):
 
 # --- Заявка (Создание) ---
 class ApplicationCreateRequest(BaseModel):
-    product: str = Field(..., pattern="^(working_capital|startup)$")
+    product: str
     loan_amount_rub: int = Field(..., gt=0)
     loan_term_months: int = Field(..., ge=1, le=360)
     phone: Optional[str] = None
@@ -65,6 +68,24 @@ class ApplicationCreateRequest(BaseModel):
     @field_validator("phone")
     def check_phone(cls, v):
         return validate_phone_str(v)
+
+    @field_validator("product")
+    def check_product(cls, v):
+        if v not in PRODUCT_CODES:
+            raise ValueError("Неизвестный продукт.")
+        return v
+
+    @field_validator("own_funds_rub")
+    def check_own_funds(cls, v):
+        if v is not None and v < 0:
+            raise ValueError("Собственные средства не могут быть отрицательными.")
+        return v
+
+    @field_validator("credit_rating")
+    def check_rating(cls, v):
+        if v is not None and not 0 <= v <= 1000:
+            raise ValueError("Рейтинг должен быть от 0 до 1000.")
+        return v
 
 
 class ApplicationConfirmRequest(BaseModel):

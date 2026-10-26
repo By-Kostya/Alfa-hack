@@ -1,0 +1,12 @@
+{
+  "name": "@alfa-hack/core-credit",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@alfa-hack/core-api": "0.1.0"
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}
