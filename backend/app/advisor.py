@@ -31,6 +31,7 @@ GOALS = (
 )
 
 SMS_CODE = "0000"
+UNKNOWN_QUESTION = "Вопрос не понят. Попробуйте переформулировать."
 CHATTER = (
     (("привет", "здравств", "добрый"), "Здравствуйте. Я на связи и подберу кредит по шагам."),
     (("спасибо", "благодар"), "Пожалуйста, идём дальше."),
@@ -526,6 +527,85 @@ def speak(brief: dict) -> tuple[str, str]:
     return cleaned, "qwen"
 
 
+def looks_like_question(text: str) -> bool:
+    raw = text.lower().replace("ё", "е")
+    if "?" in raw:
+        return True
+    markers = (
+        "какая", "какой", "какие", "какое", "сколько", "зачем", "почему",
+        "можно ли", "нужен ли", "нужна ли", "нужно ли", "есть ли",
+        "что такое", "чем отлич", "расскажи", "поясни", "подскажи",
+    )
+    return any(marker in raw for marker in markers)
+
+
+def is_bare_slot(text: str) -> bool:
+    if parse_phone(text) or _sms_ok(text):
+        return True
+    if parse_amount(text) and re.search(r"[а-яё]", text.lower()) is None:
+        return True
+    if (
+        parse_term(text)
+        and len(text) <= 16
+        and not any(word in text.lower() for word in ("кака", "сколько", "почему", "зачем", "можно"))
+    ):
+        return True
+    return False
+
+
+def answer_url() -> str:
+    url = settings.advisor_llm_url.rstrip("/")
+    if not url:
+        return ""
+    base, _slash, _leaf = url.rpartition("/")
+    if not base:
+        return ""
+    return base + "/answer"
+
+
+def recent_dialogue(history: Optional[list]) -> list[dict]:
+    if not isinstance(history, list):
+        return []
+    turns = []
+    for item in history[-6:]:
+        if not isinstance(item, dict):
+            continue
+        role = item.get("role")
+        text = item.get("text")
+        if role not in ("user", "assistant") or not isinstance(text, str):
+            continue
+        cleaned = text.strip()[:300]
+        if cleaned:
+            turns.append({"role": role, "text": cleaned})
+    return turns
+
+
+def lookup_product_answer(question: str, history: Optional[list] = None) -> Optional[dict]:
+    url = answer_url()
+    if not url:
+        return None
+    payload = json.dumps(
+        {"question": question, "history": recent_dialogue(history)},
+        ensure_ascii=False,
+    ).encode("utf-8")
+    request = urllib.request.Request(
+        url,
+        data=payload,
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=20) as response:
+            body = json.loads(response.read().decode("utf-8"))
+    except (urllib.error.URLError, TimeoutError, json.JSONDecodeError, OSError):
+        global _voice_warned
+        if not _voice_warned:
+            _voice_warned = True
+            logger.warning("advisor voice unavailable")
+        return None
+    return body if isinstance(body, dict) else None
+
+
 def advise(
     goal: Optional[str],
     amount_rub: Optional[int],
@@ -535,7 +615,28 @@ def advise(
     profitability_rub: Optional[int] = None,
     business_plan: Optional[str] = None,
     phone: Optional[str] = None,
+    history: Optional[list] = None,
 ) -> dict:
+    if looks_like_question(text) and not is_bare_slot(text):
+        decision = decide(
+            goal,
+            amount_rub,
+            term_months,
+            "",
+            purpose,
+            profitability_rub,
+            business_plan,
+            phone,
+        )
+        looked = lookup_product_answer(text, history)
+        status = looked.get("status") if isinstance(looked, dict) else None
+        answer = looked.get("text") if isinstance(looked, dict) else None
+        if status == "answer" and isinstance(answer, str) and answer.strip():
+            voice = "qwen" if looked.get("from") == "model" else "formula"
+            reply = answer.strip()
+        else:
+            reply, voice = UNKNOWN_QUESTION, "formula"
+        return {**decision, "reply": reply, "voice": voice}
     decision = decide(
         goal,
         amount_rub,

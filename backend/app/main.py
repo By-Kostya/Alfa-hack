@@ -237,6 +237,7 @@ def advise_product(body: models.AdvisorTurnRequest, db: Session = Depends(get_db
         body.profitability_rub,
         body.business_plan,
         body.phone,
+        [{"role": item.role, "text": item.text} for item in body.history],
     )
     draft = result.pop("file", None)
     result["token"] = None

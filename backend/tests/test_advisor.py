@@ -1,6 +1,6 @@
 import unittest
 
-from app.advisor import advise, keeps_the_question, reply_uses_only_brief_numbers
+from app.advisor import UNKNOWN_QUESTION, advise, keeps_the_question, reply_uses_only_brief_numbers
 from app.config import settings
 
 settings.advisor_llm_url = ""
@@ -130,3 +130,26 @@ class AdvisorMathTest(unittest.TestCase):
         self.assertEqual(filed["file"]["loan_amount_rub"], 2_000_000)
         self.assertEqual(filed["file"]["loan_term_months"], 24)
         self.assertEqual(filed["file"]["profitability_rub"], 400_000)
+
+    def test_product_question_without_model_does_not_invent(self):
+        result = advise("equipment", None, None, "какая ставка на оборудование?")
+        self.assertEqual(result["answers"]["goal"], "equipment")
+        self.assertIsNone(result["answers"]["amount_rub"])
+        self.assertEqual(result["reply"], UNKNOWN_QUESTION)
+        self.assertEqual(result["voice"], "formula")
+
+    def test_question_history_does_not_move_the_form(self):
+        result = advise(
+            "equipment",
+            None,
+            None,
+            "какая погода в сочи?",
+            history=[
+                {"role": "user", "text": "какая ставка на оборудование?"},
+                {"role": "assistant", "text": "Ставка на кредит на оборудование составляет 16% годовых."},
+            ],
+        )
+        self.assertEqual(result["answers"]["goal"], "equipment")
+        self.assertIsNone(result["answers"]["amount_rub"])
+        self.assertEqual(result["reply"], UNKNOWN_QUESTION)
+        self.assertEqual(result["voice"], "formula")

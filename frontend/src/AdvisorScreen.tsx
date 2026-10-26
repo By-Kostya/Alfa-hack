@@ -50,7 +50,13 @@ export default function AdvisorScreen({
   const [error, setError] = useState('');
   const [isSending, setIsSending] = useState(false);
   const threadRef = useRef<HTMLDivElement | null>(null);
+  const linesRef = useRef<ChatLine[]>([]);
   const started = useRef(false);
+
+  function remember(next: ChatLine[]) {
+    linesRef.current = next;
+    setLines(next);
+  }
 
   useEffect(() => {
     threadRef.current?.scrollTo({ top: threadRef.current.scrollHeight });
@@ -61,14 +67,18 @@ export default function AdvisorScreen({
     if (isSending || (showUser && !trimmed)) return;
     setIsSending(true);
     setError('');
-    if (showUser) setLines((current) => [...current, { role: 'user', text: shown.trim() }]);
+    const history = linesRef.current.slice(-6).map((line) => ({
+      role: line.role,
+      text: line.text.slice(0, 300),
+    }));
+    if (showUser) remember([...linesRef.current, { role: 'user', text: shown.trim() }]);
     setDraft('');
     try {
-      const turn = await api.advise({ ...base, text: trimmed });
+      const turn = await api.advise({ ...base, text: trimmed, history });
       setAnswers(turn.answers);
       setChoices(turn.choices);
       setProduct(turn.product);
-      setLines((current) => [...current, { role: 'assistant', text: turn.reply }]);
+      remember([...linesRef.current, { role: 'assistant', text: turn.reply }]);
       if (turn.token) {
         sessionStorage.removeItem(DRAFT_KEY);
         await onSession(turn.token);
@@ -92,7 +102,7 @@ export default function AdvisorScreen({
   function restart() {
     sessionStorage.removeItem(DRAFT_KEY);
     setAnswers(EMPTY);
-    setLines([]);
+    remember([]);
     setChoices([]);
     setProduct(null);
     setSaved(false);

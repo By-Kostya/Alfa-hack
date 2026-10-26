@@ -2,24 +2,48 @@
 """Голос подбора на базовой Qwen2.5-1.5B-Instruct.
 
 Адаптер экстрактора не подключается: модель не дообучена под этот чат.
-Она получает JSON, который уже посчитала формула, и возвращает одну фразу.
+/paraphrase пересказывает фразу формулы.
+/answer ищет карточку продукта и отвечает только по ней.
 Веса не меняются.
 """
 
 from __future__ import annotations
 
 import json
+import sys
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+
+from rag import (  # noqa: E402
+    apply_center,
+    center,
+    declines,
+    card_facts,
+    faithful,
+    focus_product,
+    grounded,
+    load_chunks,
+    mentions_question,
+    rank,
+    refers_to_prior,
+    supporting_sentences,
+    wants_more,
+)
+
 LOCAL = ROOT / "models" / "extractor" / "base"
+KNOWLEDGE = ROOT / "knowledge"
 HOST = "127.0.0.1"
 PORT = 8766
 
 MODEL = None
 TOKENIZER = None
 GENERATE = None
+CHUNKS: list[dict] = []
+VECTORS: list[list[float]] = []
+CENTER: list[float] = []
 
 INSTRUCTION = (
     "Перефразируй фразу сотрудника банка одной-двумя живыми фразами по-русски. "
@@ -29,11 +53,148 @@ INSTRUCTION = (
     "Не говори слов JSON, модель, формула."
 )
 
+ANSWER_INSTRUCTION = (
+    "Ответь на последнюю реплику одним-двумя предложениями по-русски и прямо по фрагменту. "
+    "Недавний разговор нужен только чтобы понять, о каком продукте речь. "
+    "Если во фрагменте есть ставка, срок, сумма или залог, перескажи этот факт. "
+    "Числа копируй цифрами как во фрагменте и не добавляй новых. "
+    "Фразу «нет данных» пиши только если фрагмент вообще не про этот вопрос. "
+    "Не говори слов JSON, модель, формула."
+)
+
+REFUSAL_INSTRUCTION = (
+    "Ты сотрудник банка. В карточках нет ответа на последнюю реплику. "
+    "Напиши только отказ, одно предложение. Повтори тему вопроса и скажи, что в условиях кредита этого нет. "
+    "Недавний разговор можно упомянуть, если он про кредит. "
+    "Не описывай саму тему, не выдумывай факты и не отвечай из общих знаний. "
+    "Пример: на вопрос «какая погода в Сочи?» ответ «Про погоду в Сочи в условиях кредита сказать не могу.» "
+    "Не говори слов JSON, модель, формула."
+)
+
 
 def model_id() -> str:
     if (LOCAL / "model.safetensors").is_file():
         return str(LOCAL)
     return "mlx-community/Qwen2.5-1.5B-Instruct-4bit"
+
+
+def encode(text: str) -> list[float]:
+    import mlx.core as mx
+
+    ids = list(TOKENIZER.encode(text))[:256]
+    if not ids:
+        ids = [0]
+    hidden = MODEL.model(mx.array([ids]))
+    mx.eval(hidden)
+    last = hidden[0, -1]
+    return [float(value) for value in last.tolist()]
+
+
+def build_index() -> None:
+    global CHUNKS, VECTORS, CENTER
+    CHUNKS = load_chunks(KNOWLEDGE)
+    raw = [encode(chunk["text"]) for chunk in CHUNKS]
+    if not raw:
+        VECTORS = []
+        CENTER = []
+        return
+    VECTORS, CENTER = center(raw)
+    print(f"карточек продуктов: {len(CHUNKS)}", flush=True)
+
+
+def read_history(raw) -> list[dict]:
+    if not isinstance(raw, list):
+        return []
+    turns = []
+    for item in raw[-6:]:
+        if not isinstance(item, dict):
+            continue
+        role = item.get("role")
+        text = item.get("text")
+        if role not in ("user", "assistant") or not isinstance(text, str):
+            continue
+        cleaned = text.strip()[:300]
+        if cleaned:
+            turns.append({"role": role, "text": cleaned})
+    return turns
+
+
+def dialogue(history: list[dict], question: str, preface: str = "") -> list[dict]:
+    messages = [{"role": turn["role"], "content": turn["text"]} for turn in history]
+    content = question if not preface else f"{preface}\n\nВопрос:\n{question}"
+    messages.append({"role": "user", "content": content})
+    return messages
+
+
+def complete(system: str, messages: list[dict], max_tokens: int) -> str:
+    prompt = TOKENIZER.apply_chat_template(
+        [{"role": "system", "content": system}, *messages],
+        add_generation_prompt=True,
+        tokenize=False,
+    )
+    return str(GENERATE(MODEL, TOKENIZER, prompt=prompt, max_tokens=max_tokens, verbose=False)).strip()
+
+
+def prior_user_lines(history: list[dict]) -> list[str]:
+    return [turn["text"] for turn in history if turn["role"] == "user"][-2:]
+
+
+def find_cards(question: str, history: list[dict]) -> tuple[str, list[dict]]:
+    prior = prior_user_lines(history)
+    query = question
+    if refers_to_prior(question) and prior:
+        query = "\n".join([*prior, question])
+    found = rank(query, CHUNKS, VECTORS, apply_center(encode(query), CENTER))
+    if not found and query != question:
+        query = question
+        found = rank(query, CHUNKS, VECTORS, apply_center(encode(query), CENTER))
+    if prior:
+        found = focus_product(found, "\n".join(prior))
+    return query, found
+
+
+def topic_refusal(question: str) -> str:
+    asked = " ".join(question.strip().rstrip("?").split())
+    if len(asked) > 180:
+        asked = asked[:180].rstrip()
+    return f"Про «{asked}» в условиях кредита сказать не могу: в карточках этого нет."
+
+
+def refuse(question: str, history: list[dict]) -> dict:
+    allowed = "\n".join([question, *[turn["text"] for turn in history]])
+    text = complete(REFUSAL_INSTRUCTION, dialogue(history, question), 80)
+    print(f"rag отказ: {text}", flush=True)
+    if declines(text) and mentions_question(text, question) and grounded(text, allowed):
+        return {"status": "answer", "text": text, "from": "model"}
+    return {"status": "answer", "text": topic_refusal(question), "from": "card"}
+
+
+def answer(question: str, history: list[dict] | None = None) -> dict:
+    if not CHUNKS or not CENTER:
+        return {"status": "unavailable"}
+    turns = history or []
+    query, found = find_cards(question, turns)
+    if not found:
+        return refuse(question, turns)
+    context = "\n\n".join(chunk["text"] for chunk in found)
+    if wants_more(question):
+        support = " ".join(card_facts(chunk) for chunk in found[:1])
+    else:
+        support = supporting_sentences(query, found)
+    text = complete(
+        ANSWER_INSTRUCTION,
+        dialogue(turns, question, f"Фрагменты:\n{context}"),
+        160,
+    )
+    print(f"rag ответ: {text}", flush=True)
+    safe = "нет данных" not in text.lower() and grounded(text, context) and faithful(text, support)
+    if safe:
+        return {"status": "answer", "text": text, "from": "model"}
+    if support and grounded(support, context):
+        return {"status": "answer", "text": support, "from": "card"}
+    if "нет данных" in text.lower():
+        return refuse(question, turns)
+    return {"status": "ungrounded"}
 
 
 def paraphrase(payload: str) -> str:
@@ -51,23 +212,34 @@ def paraphrase(payload: str) -> str:
 
 class Handler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:
-        if self.path.split("?", 1)[0] != "/paraphrase":
-            self.send_error(404)
-            return
+        path = self.path.split("?", 1)[0]
         length = int(self.headers.get("Content-Length") or "0")
         try:
-            body = json.loads(self.rfile.read(length).decode("utf-8"))
-            draft = body.get("draft")
-            if not isinstance(draft, str) or not draft.strip():
-                brief = body.get("brief")
-                if not isinstance(brief, dict):
-                    raise ValueError("brief")
-                draft = json.dumps(brief, ensure_ascii=False)
-            text = paraphrase(draft.strip())
+            body = json.loads(self.rfile.read(length).decode("utf-8") or "{}")
         except Exception:
             self.send_error(400)
             return
-        raw = json.dumps({"text": text}, ensure_ascii=False).encode("utf-8")
+        try:
+            if path == "/paraphrase":
+                draft = body.get("draft")
+                if not isinstance(draft, str) or not draft.strip():
+                    brief = body.get("brief")
+                    if not isinstance(brief, dict):
+                        raise ValueError("brief")
+                    draft = json.dumps(brief, ensure_ascii=False)
+                payload = {"text": paraphrase(draft.strip())}
+            elif path == "/answer":
+                question = body.get("question")
+                if not isinstance(question, str) or not question.strip():
+                    raise ValueError("question")
+                payload = answer(question.strip(), read_history(body.get("history")))
+            else:
+                self.send_error(404)
+                return
+        except Exception:
+            self.send_error(400)
+            return
+        raw = json.dumps(payload, ensure_ascii=False).encode("utf-8")
         self.send_response(200)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(raw)))
@@ -86,8 +258,13 @@ def main() -> None:
     chosen = model_id()
     print(f"загружаю базовую Qwen без адаптера: {chosen}", flush=True)
     MODEL, TOKENIZER = load(chosen)
+    try:
+        build_index()
+    except Exception as exc:
+        print(f"карточки не проиндексированы: {exc}", flush=True)
     server = ThreadingHTTPServer((HOST, PORT), Handler)
     print(f"голос подбора http://{HOST}:{PORT}/paraphrase", flush=True)
+    print(f"ответы по карточкам http://{HOST}:{PORT}/answer", flush=True)
     server.serve_forever()
 
 

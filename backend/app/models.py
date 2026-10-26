@@ -212,6 +212,23 @@ class CabinetResponse(BaseModel):
     credits: List[CreditShortOut]
 
 
+class AdvisorHistoryItem(BaseModel):
+    role: str
+    text: str
+
+    @field_validator("role")
+    def check_role(cls, value):
+        if value not in ("user", "assistant"):
+            raise ValueError("Неизвестная реплика.")
+        return value
+
+    @field_validator("text")
+    def check_line(cls, value):
+        if not isinstance(value, str):
+            raise ValueError("Напишите сообщение текстом.")
+        return value.strip()[:300]
+
+
 class AdvisorTurnRequest(BaseModel):
     goal: Optional[str] = None
     amount_rub: Optional[int] = None
@@ -221,6 +238,7 @@ class AdvisorTurnRequest(BaseModel):
     business_plan: Optional[str] = None
     phone: Optional[str] = None
     text: str = ""
+    history: List[AdvisorHistoryItem] = Field(default_factory=list)
 
     @field_validator("amount_rub", "term_months", "profitability_rub", mode="before")
     def check_whole_number(cls, value):
@@ -237,3 +255,7 @@ class AdvisorTurnRequest(BaseModel):
     @field_validator("phone")
     def check_phone(cls, value):
         return validate_phone_str(value)
+
+    @field_validator("history")
+    def check_history(cls, value):
+        return [item for item in value if item.text][-6:]

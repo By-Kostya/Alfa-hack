@@ -72,6 +72,11 @@ export type AdvisorChoice = {
   label: string;
 };
 
+export type AdvisorHistoryLine = {
+  role: 'user' | 'assistant';
+  text: string;
+};
+
 export type AdvisorTurn = {
   goal?: string | null;
   amount_rub?: number | null;
@@ -81,6 +86,7 @@ export type AdvisorTurn = {
   business_plan?: string | null;
   phone?: string | null;
   text?: string;
+  history?: AdvisorHistoryLine[];
 };
 
 export type AdvisorReply = {
